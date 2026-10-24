@@ -19,7 +19,7 @@ internal sealed class WorkbenchWindow : Form {
     static bool Flag(Dictionary<string,object>d,string key){object value;return d.TryGetValue(key,out value)&&value is bool&&(bool)value;}
     static string TextValue(Dictionary<string,object>d,string key){object value;return d.TryGetValue(key,out value)&&value is string?(string)value:"";}
     internal WorkbenchWindow(string url,string dataDir){
-        address=url;storage=dataDir;Text="订单工作台 v1.11";Font=new Font("Microsoft YaHei UI",9);StartPosition=FormStartPosition.CenterScreen;Size=new Size(1400,940);MinimumSize=new Size(1050,730);AutoScaleMode=AutoScaleMode.Dpi;
+        address=url;storage=dataDir;Text="订单工作台 v1.12";Font=new Font("Microsoft YaHei UI",9);StartPosition=FormStartPosition.CenterScreen;Size=new Size(1400,940);MinimumSize=new Size(1050,730);AutoScaleMode=AutoScaleMode.Dpi;
         using(var s=System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("app.ico")){if(s!=null)Icon=new Icon(s);}
         browser.AllowExternalDrop=true;browser.Dock=DockStyle.Fill;Controls.Add(browser);Shown+=Initialize;FormClosing+=HandleFormClosing;
         updateMonitor.Changed+=PublishUpdateState;
@@ -44,8 +44,9 @@ internal sealed class WorkbenchWindow : Form {
                 catch(Exception ex){browser.CoreWebView2.PostWebMessageAsJson(Json().Serialize(new{type="evidence-paths-result",requestId=requestId,error="未能取得原文件路径："+ex.Message}));}return;
             }
             if(type=="update-status-request"){PublishUpdateState();return;}
+            if(type=="open-project"){try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/"+UpdateCore.Repository){UseShellExecute=true});}catch(Exception ex){MessageBox.Show(this,"无法打开浏览器。项目地址：\nhttps://github.com/"+UpdateCore.Repository+"\n\n"+ex.Message,"项目地址",MessageBoxButtons.OK,MessageBoxIcon.Information);}return;}
             if(type=="software-update"){BeginInvoke(new Action(ShowUpdates));return;}
-            if(type=="save-state"){pageReady=true;latestState=TextValue(data,"state");string label=latestState=="dirty"?"未保存":latestState=="saving"?"正在保存":latestState=="error"?"保存失败":latestState=="demo"?"示例模式":"已保存";Text="订单工作台 v1.11 · "+label;if(!autoUpdatesStarted&&latestState!="loading"){autoUpdatesStarted=true;updateMonitor.StartAutomatic();autoUpdateTimer.Start();PublishUpdateState();}}
+            if(type=="save-state"){pageReady=true;latestState=TextValue(data,"state");string label=latestState=="dirty"?"未保存":latestState=="saving"?"正在保存":latestState=="error"?"保存失败":latestState=="demo"?"示例模式":"已保存";Text="订单工作台 v1.12 · "+label;if(!autoUpdatesStarted&&latestState!="loading"){autoUpdatesStarted=true;updateMonitor.StartAutomatic();autoUpdateTimer.Start();PublishUpdateState();}}
             if(type=="request-close")BeginInvoke(new Action(RequestClose));
             if(type=="close-save-result"){string id=TextValue(data,"requestId");TaskCompletionSource<Dictionary<string,object>> request;if(requests.TryGetValue(id,out request))request.TrySetResult(data);}
         }catch{}
@@ -79,11 +80,11 @@ internal sealed class WorkbenchWindow : Form {
             if(Flag(state,"dirty")){
                 DialogResult answer;using(var prompt=new SaveBeforeExitDialog(TextValue(state,"reason"),TextValue(state,"lastSavedText")))answer=prompt.ShowDialog(this);
                 if(answer==DialogResult.Cancel)return;
-                if(answer==DialogResult.Yes){browser.Enabled=false;Text="订单工作台 v1.11 · 正在保存后退出";var saved=await SaveForClose();if(!Flag(saved,"ok")){MessageBox.Show(this,"没有退出，当前编辑仍保留。\n\n"+TextValue(saved,"error"),"保存未完成",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}state=await CloseState();if(Flag(state,"dirty")||Flag(state,"saving")){MessageBox.Show(this,"仍有未保存内容，已取消退出。","请先保存",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}}
+                if(answer==DialogResult.Yes){browser.Enabled=false;Text="订单工作台 v1.12 · 正在保存后退出";var saved=await SaveForClose();if(!Flag(saved,"ok")){MessageBox.Show(this,"没有退出，当前编辑仍保留。\n\n"+TextValue(saved,"error"),"保存未完成",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}state=await CloseState();if(Flag(state,"dirty")||Flag(state,"saving")){MessageBox.Show(this,"仍有未保存内容，已取消退出。","请先保存",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}}
             }
             await browser.ExecuteScriptAsync("window.workbench && window.workbench.allowClose();");allowClose=true;BeginInvoke(new Action(Close));
         }catch(Exception ex){MessageBox.Show(this,"已取消退出，不能确认数据已保存。\n\n"+ex.Message,"请保留当前窗口",MessageBoxButtons.OK,MessageBoxIcon.Warning);}
-        finally {if(!IsDisposed&&!allowClose){browser.Enabled=true;closeInProgress=false;Text="订单工作台 v1.11 · "+(latestState=="error"?"保存失败":latestState=="dirty"?"未保存":"继续编辑");}}
+        finally {if(!IsDisposed&&!allowClose){browser.Enabled=true;closeInProgress=false;Text="订单工作台 v1.12 · "+(latestState=="error"?"保存失败":latestState=="dirty"?"未保存":"继续编辑");}}
     }
 }
 

@@ -31,7 +31,7 @@ async function confirmProduction(e){
  let orders;try{orders=P.toOrders(productionPreview,productionSheetData(),edited);}catch(error){productionImportNotice(errMsg(error));return;}
  const errors=P.errors(orders,activeOrders());if(errors.length){productionImportNotice(errors[0]);return;}
  const form=$('#production-form');form.inert=true;$('#production-confirm').disabled=true;
- try{await persist([...activeOrders(),...orders]);$('#production-dialog').close();view='all';mode='table';$('#search').value=orders[0].contractNumber;$('#stage-filter').value='';render();toast(`已导入 ${orders[0].alias}，${orders.length} 个机型分别跟进${demo?'（示例模式）':''}`);}
+ try{await persist([...activeOrders(),...orders]);$('#production-dialog').close();view='all';mode='table';$('#search').value='';$('#stage-filter').value='';render();toast(`已导入 ${orders[0].alias}，${orders.length} 个机型分别跟进${demo?'（示例模式）':''}`);}
  catch(error){productionImportNotice(errMsg(error));}
  finally{form.inert=false;refreshProductionSelection();}
 }
