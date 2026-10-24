@@ -1,0 +1,25 @@
+# 本地业务数据与自动备份
+**/data/
+**/backups/
+**/orders.json
+**/instance.json
+**/WebView2UserData/
+**/EBWebView/
+
+# 编译产物与便携发行包，使用 Releases 分发
+*.exe
+*.dll
+*.pdb
+*.zip
+/runtimes/
+/work/
+/outputs/
+
+# 编辑器、临时文件及本机设置
+.vs/
+.vscode/
+*.log
+*.tmp
+*.user
+.env
+.env.*

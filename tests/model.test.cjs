@@ -1,0 +1,12 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const W=require('../源码/model.js'),P=require('../源码/production.js'),B=require('../源码/batch.js'),E=require('../源码/evidence.js');
+const orders=()=>[1,2,3].map(i=>P.normalize(W.newOrder({id:'test-'+i,number:'TEST-'+i,contractNumber:'TEST',customer:'虚构测试客户',model:'MODEL-'+i,quantity:1})));
+test('订单简称保留数字和尾字母',()=>assert.equal(P.shortName('26DEMO1234A'),'1234A'));
+test('整单确认仅作用勾选机型',()=>{const a=orders(),r=B.preview(a,{contract:'TEST',ids:[a[1].id],machineConfirmed:true});assert.deepEqual(r.issues,[]);assert.equal(r.changedCount,1);assert.deepEqual(r.orders[0],a[0]);assert.equal(r.orders[1].machineConfirmed,true);assert.equal(a[1].machineConfirmed,false);});
+test('采购交接检查机器料号',()=>{const a=orders();assert.ok(B.preview(a,{contract:'TEST',ids:a.map(o=>o.id),machineConfirmed:true,procurementSent:true}).issues.length);});
+test('保存状态正确显示部分确认',()=>{const a=orders();a[0].appearance=true;const r=B.savedState(a,'TEST',a.map(o=>o.id));assert.equal(r.checks.appearance.mixed,true);assert.equal(r.checks.appearance.done,1);});
+test('依据文件只保存路径元数据并去重',()=>{const a=orders()[0],one=E.merge(a,['D:\\测试资料\\依据.pdf'],'machine','测试');const two=E.merge(one.order,['d:/测试资料/依据.pdf'],'machine');assert.equal(two.changed,0);assert.deepEqual(Object.keys(one.order.evidence[0]).sort(),['addedAt','id','note','path','stage']);assert.equal(a.evidence,undefined);});
+test('整单共享依据不自动确认机器',()=>{const a=orders(),r=B.preview(a,{contract:'TEST',ids:a.map(o=>o.id),evidence:[{path:'D:\\测试资料\\整单.pdf',stage:'machine',note:''}]});assert.deepEqual(r.issues,[]);assert.ok(r.orders.every(o=>o.evidence.length===1&&!o.machineConfirmed));});
+test('空导入不创建订单',()=>assert.ok(P.errors([],[]).some(m=>m.includes('至少选择'))));
+test('排除行后保留正确来源',()=>{const fields=Object.fromEntries(Object.entries({contractNumber:'TEST',customer:'虚构客户',headerQuantity:'3',notes:''}).map(([k,value])=>[k,{value}]));const sheet={sheet:'测试表',fields,detailTotal:3,warnings:[],items:[0,1,2].map(i=>({serial:String(i+1),row:i+10,model:'MODEL-'+i,quantity:1,cells:{model:'B'+(i+10)},productRequirements:'测试要求-'+i}))};const r=P.toOrders({filename:'虚构测试.xlsx',sha256:'test'},sheet,{selectedIndices:[2]});assert.equal(r.length,1);assert.equal(r[0].sourceSerial,'3');assert.equal(r[0].productionSource.row,12);assert.deepEqual(r[0].productionSource.originalItem,sheet.items[2]);});

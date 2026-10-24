@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>订单工作台</title><link rel="icon" href="app.ico"><link rel="stylesheet" href="style.css"></head>
+<body>
+<aside class="sidebar">
+ <div class="brand"><div class="brand-mark">序</div><div>订单工作台<small>订单 · 进度 · 协作</small></div></div>
+ <div class="workspace"><span class="live-dot"></span>我的工作空间<span class="local-label">本地版</span></div>
+ <div class="nav-label">订单管理</div>
+ <nav aria-label="主导航">
+ <button data-view="overview" class="nav-item active"><span class="nav-icon">◈</span>工作概览</button>
+ <button data-view="all" class="nav-item"><span class="nav-icon">▤</span>全部订单<span id="nav-all" class="nav-count">0</span></button>
+ <button data-view="waiting" class="nav-item"><span class="nav-icon">◷</span>等待协作<span id="nav-waiting" class="nav-count">0</span></button>
+ <button data-view="due" class="nav-item"><span class="nav-icon">⚑</span>临近 / 已过期</button>
+ <button data-view="done" class="nav-item"><span class="nav-icon">✓</span>已完成</button>
+ <button data-view="archived" class="nav-item"><span class="nav-icon">▱</span>归档订单</button>
+ </nav>
+ <div class="nav-label lower">工具</div>
+ <button id="backup-open" class="nav-item"><span class="nav-icon">⇅</span>数据备份与迁移</button>
+ <button id="guide-open" class="nav-item"><span class="nav-icon">?</span>流程说明</button>
+ <div class="sidebar-bottom"><div class="save-led"><span class="live-dot"></span><span id="save-status">正在连接本地数据…</span></div><div id="last-saved" class="last-saved">最近保存：正在读取…</div><div id="save-hint" class="save-hint"></div><button id="save-now" class="save-now" disabled>保存当前更改</button><div class="version">v1.9.0 · 数据保存在这台电脑</div><button class="text-btn" id="quit">退出程序 ↗</button></div>
+</aside>
+<main>
+ <header class="topbar"><div class="breadcrumb">我的工作空间 <span>/</span> <b id="breadcrumb">工作概览</b></div><div class="topbar-right"><span id="date-label"></span><span class="avatar">我</span></div></header>
+ <div id="demo-banner" class="demo-banner" hidden><span>◉ 正在体验示例订单 · 示例修改不会写入正式订单</span><button id="demo-exit">返回正式工作台 →</button></div>
+ <section class="page">
+ <div class="page-heading"><div><div class="eyebrow">每笔订单 · 全程跟进</div><h1 id="page-title">每一笔订单，进度清晰。</h1><p id="page-subtitle">从机器确认到计划下单，把待办和等待一眼看清。</p></div><div class="heading-import"><div class="heading-actions"><button class="secondary" id="production-open">↑ 导入生产单</button><button class="primary" id="new-order">＋ 新建订单</button></div><div class="drop-tip">也可直接拖入 .xlsx 生产单</div></div></div>
+ <div id="stats" class="stats"></div>
+ <section id="attention" class="attention"></section>
+ <section class="orders-panel"><div class="panel-heading"><div><h2 id="list-title">进行中的订单 <span id="result-count"></span></h2><p id="list-subtitle">可以先下单机器，丝印与包材随后补齐。</p></div><div class="list-display-tools"><div id="group-controls" class="group-controls" aria-label="订单展开控制" hidden><button id="expand-all">全部展开</button><button id="collapse-all">全部收起</button></div><div class="view-switch" aria-label="显示方式"><button id="table-view" class="selected" title="列表视图">☷ 列表</button><button id="board-view" title="看板视图">▥ 看板</button></div></div></div>
+ <div class="toolbar"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="搜索简称、合同号、客户、型号、料号" aria-label="搜索订单"></label><select id="stage-filter" aria-label="筛选阶段"><option value="">全部阶段</option><option value="machine">机器确认</option><option value="purchase">料号 / 采购</option><option value="material">丝印 / 包材</option><option value="plan">料号 / 计划</option><option value="done">已完成</option></select><select id="sort" aria-label="排序"><option value="due">交期优先</option><option value="updated">最近更新</option><option value="created">最近新建</option></select><button id="csv-export" class="secondary small">导出清单 ↗</button></div>
+ <div id="order-list"></div>
+ <div class="panel-foot"><span>● 已完成　<span class="amber-text">● 等待 / 进行中</span>　<span class="muted">○ 待办理</span></span><span>点击订单行展开产品，再点击产品查看确认事项 →</span></div>
+ </section>
+ <footer class="page-foot"><span>有条理地推进每一次交付。</span><span>本地离线使用 · 无需登录</span></footer>
+ </section>
+</main>
+<div id="production-drop" class="production-drop" hidden aria-hidden="true"><div class="production-drop-card"><span>↑</span><h2>松开鼠标，导入生产单</h2><p>支持单份 .xlsx 文件 · 先核对预览，再确认导入</p></div></div>
+<div id="drawer-overlay" class="overlay" hidden></div><aside id="drawer" class="drawer" hidden role="dialog" aria-modal="true" aria-label="订单详情"></aside>
+<dialog id="new-dialog"><form id="new-form"><div class="dialog-heading"><div><div class="eyebrow">登记新订单</div><h2>新建客户订单</h2></div><button type="button" data-close="new-dialog" class="icon-btn" aria-label="关闭">×</button></div><p class="dialog-intro">先登记基本信息，随后逐项确认机器、丝印和包材。</p><div class="form-grid"><label>订单号 <em>*</em><input name="number" required maxlength="100" placeholder="例如 SO-20261023-01"></label><label>订单简称<input name="alias" maxlength="100" placeholder="自动从合同号提取，可修改"></label><label>客户名称 / 编号 <em>*</em><input name="customer" required maxlength="100" placeholder="客户 / 公司名称"></label><label>机器型号 <em>*</em><input name="model" required maxlength="100" placeholder="订单对应的机器型号"></label><label>数量 <em>*</em><input name="quantity" type="number" min="1" max="100000000" step="1" value="1" required></label><label>对接业务<input name="sales" maxlength="100" placeholder="负责这笔订单的业务"></label><label>目标交期<input name="due" type="date"></label><label>优先级<select name="priority"><option value="normal">普通</option><option value="urgent">加急</option></select><label>备注<input name="notes" maxlength="2000" placeholder="客户特殊要求等"></label></div><div class="dialog-actions"><button type="button" class="secondary" data-close="new-dialog">取消</button><button type="submit" class="primary">创建并确认流程 →</button></div></form></dialog>
+<dialog id="evidence-dialog"><div id="evidence-content"></div></dialog>
+<dialog id="batch-dialog"><div id="batch-content"></div></dialog>
+<dialog id="tools-dialog"><div id="tools-content"></div></dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+<input id="import-file" type="file" accept="application/json,.json" hidden>
+<dialog id="production-dialog"><div id="production-content"></div></dialog><input id="production-file" type="file" accept=".xlsx" hidden><script src="evidence.js"></script><script src="model.js"></script><script src="production.js"></script><script src="batch.js"></script><script src="save-state.js"></script><script src="app.js"></script><script src="production-ui.js"></script><script src="batch-ui.js"></script><script src="evidence-ui.js"></script>
+</body></html>
