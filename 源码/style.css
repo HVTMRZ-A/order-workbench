@@ -23,3 +23,5 @@
 .software-update{display:block;margin:6px 0 10px}
 
 .sidebar{overflow-y:auto}
+
+.update-auto-status{font-size:10px;color:#8a9993;line-height:1.65;margin:-4px 0 10px;overflow-wrap:anywhere}.software-update.update-available{font-weight:650;background:#e8f5e9;color:#236b45;border-radius:5px;padding:5px 7px}.software-update.update-available::before{content:"● ";font-size:9px}

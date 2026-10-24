@@ -100,3 +100,13 @@ $('#date-label').textContent=new Date().toLocaleDateString('zh-CN',{year:'numeri
 (async()=>{try{db=await api('data');validateImport(db);db.orders=db.orders.map(P.normalize);dataReady=true;render();syncSaveStatus();}catch(e){saveError=true;lastSaveProblem=errMsg(e);syncSaveStatus();$('#order-list').innerHTML=`<div class="empty"><h3>暂时无法读取订单</h3><p>${esc(errMsg(e))}</p><button class="secondary" id="reload">重新连接</button></div>`;$('#reload').onclick=()=>location.reload();$('#new-order').disabled=true;toast(errMsg(e),true);}})();
 
 $('#software-update').onclick=()=>{if(nativeHost)window.chrome.webview.postMessage({type:'software-update'});else toast('请在独立程序窗口中使用“软件更新”',true);};
+
+function showAutomaticUpdate(message){
+ if(!message||message.type!=='update-status'||!['idle','checking','available','current','error'].includes(message.state))return;
+ const button=$('#software-update'),note=$('#update-auto-status'),version=typeof message.version==='string'&&/^\d{1,5}\.\d{1,5}\.\d{1,5}$/.test(message.version)?message.version:'';
+ const available=message.available===true&&!!version;button.classList.toggle('update-available',available);button.textContent=available?'发现新版 v'+version+' ↻':'软件更新 ↻';
+ button.title=available?'点击查看新版并更新；当前订单继续保留':'启动后自动检查，也可点击手动检查';
+ note.textContent=available?'有可用更新，点击上方查看':message.state==='checking'?'正在后台检查更新…':message.state==='current'?'已是最新版本 · 自动检查已开启':message.state==='error'?'自动检查未完成，可点击重试':'启动后自动检查更新';
+ if(message.state==='error')note.title=typeof message.error==='string'?message.error:'';else note.title='启动后后台检查，持续运行时每 4 小时检查；不会自动下载或安装。';
+}
+if(nativeHost){window.chrome.webview.addEventListener('message',event=>showAutomaticUpdate(event.data));window.chrome.webview.postMessage({type:'update-status-request'});}

@@ -1,10 +1,14 @@
 # 订单工作台
 
-用于 Windows 的便携订单流程跟进工具。当前版本 **v1.10.0**。
+用于 Windows 的便携订单流程跟进工具。当前版本 **v1.11.0**。
 
 [下载最新版程序](https://github.com/HVTMRZ-A/order-workbench/releases/latest) · [详细使用说明](先看这里.txt) · [版本记录](CHANGELOG.md)
 
-## 软件内更新
+## 自动检测与软件内更新
+
+本版在订单页面启动完成后后台检查更新，持续运行时每 4 小时检查。发现新版后侧栏显示提示；断网只显示轻提示并延迟重试。检测不弹窗、不下载也不安装，点击提示后仍由你决定是否更新。
+
+已安装 v1.10 的用户，可直接用“软件更新”升级到本版。
 
 旧版需要先手动安装一次 v1.10.0，保留原来的 `data`。以后点击左下角 **软件更新 → 下载并更新**，保存完成后会自动关闭、替换并重新打开。
 
@@ -23,7 +27,7 @@
 
 ## 下载和使用
 
-1. 在 **Releases** 下载 `order-workbench-v1.10.0-portable.zip`，解压完整目录。
+1. 在 **Releases** 下载 `order-workbench-v1.11.0-portable.zip`，解压完整目录。
 2. 双击 `订单工作台.exe`。不要只拷贝一个 EXE，应保留配套组件和 `runtimes`。
 3. 先使用示例模式熟悉流程，再创建或导入正式订单。
 
@@ -70,6 +74,6 @@ powershell -ExecutionPolicy Bypass -File .\源码\编译.ps1
 node --test tests/model.test.cjs
 ```
 
-本次 v1.10 发行版本另完成 41 项检查，详见 [验证说明.txt](验证说明.txt)。
+本次 v1.11 发行版本另完成 51 项检查，详见 [验证说明.txt](验证说明.txt)。
 
-发布新版时先编译主程序及更新助手，再运行 `python 打包发行.py 1.10.0`，将 `dist` 中完整 ZIP 上传到对应版本的 GitHub Release。后续版本需同步修改源码版本并传入新版本号；生成的 `update-manifest.json` 是自动更新必需的清单。
+发布新版时先编译主程序及更新助手，再运行 `python 打包发行.py 1.11.0`，将 `dist` 中完整 ZIP 上传到对应版本的 GitHub Release。后续版本需同步修改源码版本并传入新版本号；生成的 `update-manifest.json` 是自动更新必需的清单。
