@@ -98,3 +98,5 @@ document.addEventListener('input',syncSaveStatus);document.addEventListener('cha
 
 $('#date-label').textContent=new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
 (async()=>{try{db=await api('data');validateImport(db);db.orders=db.orders.map(P.normalize);dataReady=true;render();syncSaveStatus();}catch(e){saveError=true;lastSaveProblem=errMsg(e);syncSaveStatus();$('#order-list').innerHTML=`<div class="empty"><h3>暂时无法读取订单</h3><p>${esc(errMsg(e))}</p><button class="secondary" id="reload">重新连接</button></div>`;$('#reload').onclick=()=>location.reload();$('#new-order').disabled=true;toast(errMsg(e),true);}})();
+
+$('#software-update').onclick=()=>{if(nativeHost)window.chrome.webview.postMessage({type:'software-update'});else toast('请在独立程序窗口中使用“软件更新”',true);};

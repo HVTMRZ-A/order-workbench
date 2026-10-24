@@ -23,3 +23,6 @@
 *.user
 .env
 .env.*
+
+/dist/
+/update-manifest.json
