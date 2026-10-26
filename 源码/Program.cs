@@ -34,8 +34,10 @@ internal static class Program {
             ContextMenuStrip menu=new ContextMenuStrip();menu.Items.Add("打开订单工作台",null,delegate{if(mainWindow!=null)mainWindow.Reveal();else Open(url);});menu.Items.Add("打开数据文件夹",null,delegate{Process.Start("explorer.exe",dir);});menu.Items.Add("退出工作台",null,delegate{RequestShutdown();});tray.ContextMenuStrip=menu;tray.DoubleClick+=delegate{if(mainWindow!=null)mainWindow.Reveal();else Open(url);};
             if(browse&&!browserMode){mainWindow=new WorkbenchWindow(url,dir);Application.Run(mainWindow);}else{if(browse)Open(url);Application.Run();}
         } catch(Exception ex) { MessageBox.Show("工作台未能启动：\n"+ex.Message+"\n\n如果订单文件损坏，请保留 data 文件夹，并从 data\\backups 或导出的备份中恢复。","订单工作台",MessageBoxButtons.OK,MessageBoxIcon.Error); }
-        finally {stopping=true;if(tray!=null){tray.Visible=false;tray.Dispose();}if(listener!=null)listener.Stop();if(dataLock!=null)dataLock.Dispose();}
+        finally {if(mainWindow!=null&&!mainWindow.UpdateInstalling)NativeIcons.Schedule(Application.ExecutablePath,dir);stopping=true;if(tray!=null){tray.Visible=false;tray.Dispose();}if(listener!=null)listener.Stop();if(dataLock!=null)dataLock.Dispose();}
     }
+    internal static void SetTrayIcon(Icon icon){if(tray==null)return;var old=tray.Icon;tray.Icon=(Icon)icon.Clone();if(old!=null)old.Dispose();}
+    internal static void ApplySavedIcon(Dictionary<string,object> settings){if(mainWindow==null||mainWindow.IsDisposed)return;mainWindow.BeginInvoke(new Action(delegate{try{NativeIcons.SaveIcon(dir,settings);mainWindow.ApplyProgramIcon(settings);NativeIcons.RefreshShortcuts(Application.ExecutablePath,dir);}catch{}}));}
     static void RevealInstance(string address){try {var uri=new Uri(address);string secret=uri.AbsolutePath.Trim('/');var request=(HttpWebRequest)WebRequest.Create(address+"api/show");request.Method="POST";request.Headers["X-Workbench-Token"]=secret;request.ContentLength=0;request.Timeout=3000;using(var response=request.GetResponse()){} }catch{MessageBox.Show("工作台已运行，请切回现有窗口。","订单工作台");}}
     static void RequestShutdown(){if(mainWindow!=null&&!mainWindow.IsDisposed){mainWindow.BeginInvoke(new Action(mainWindow.RequestClose));return;}Shutdown();}
     static void Open(string address) {
@@ -65,7 +67,7 @@ internal static class Program {
                 if(method!="POST"||!headers.ContainsKey("X-Workbench-Token")||headers["X-Workbench-Token"]!=token){ReplyJson(stream,403,new{error="无效会话，请重新打开工作台"});return;}
                 if(body.Length>16384){ReplyJson(stream,400,new{error="账户信息过长"});return;}var input=Dict(Json().DeserializeObject(Utf8.GetString(body)));
                 if(route=="api/auth/create"){ReplyJson(stream,200,new{user=Accounts.Create(dir,input,account)});return;}
-                if(route=="api/auth/login"){string session;var user=Accounts.Login(dir,input,out session);ReplyAuth(stream,new{user=user},"ow_session="+session+"; HttpOnly; SameSite=Strict; Path=/"+token+"/");return;}
+                if(route=="api/auth/login"){string session;var user=Accounts.Login(dir,input,out session);Accounts.Logout(cookie);ReplyAuth(stream,new{user=user},"ow_session="+session+"; HttpOnly; SameSite=Strict; Path=/"+token+"/");return;}
                 if(route=="api/auth/logout"){Accounts.Logout(cookie);ReplyAuth(stream,new{ok=true},"ow_session=; Max-Age=0; HttpOnly; SameSite=Strict; Path=/"+token+"/");return;}
                 ReplyJson(stream,404,new{error="账户操作不存在"});
             }catch(Exception ex){ReplyJson(stream,400,new{error=ex.Message});}return;
@@ -84,7 +86,7 @@ internal static class Program {
         }
         if(route=="api/settings"&&(method=="GET"||method=="POST")){
             if(method=="POST"&&(!headers.ContainsKey("X-Workbench-Token")||headers["X-Workbench-Token"]!=token)){ReplyJson(stream,403,new{error="无效会话，请重新打开工作台"});return;}
-            try{lock(SettingsStore.Gate){if(method=="GET")ReplyJson(stream,200,SettingsStore.Read(dir));else ReplyJson(stream,200,SettingsStore.Save(dir,Dict(Json().DeserializeObject(Utf8.GetString(body)))));}}
+            try{lock(SettingsStore.Gate){if(method=="GET")ReplyJson(stream,200,SettingsStore.Read(dir));else{var saved=SettingsStore.Save(dir,Dict(Json().DeserializeObject(Utf8.GetString(body))));ApplySavedIcon(saved);ReplyJson(stream,200,saved);}}}
             catch(SettingsConflictException ex){ReplyJson(stream,409,new{error=ex.Message});}catch(Exception ex){ReplyJson(stream,400,new{error="设置未保存："+ex.Message});}return;
         }
         if(method=="POST"&&route=="api/data"){

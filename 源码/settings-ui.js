@@ -1,5 +1,6 @@
 'use strict';
 let preferences=null,preferencesDraft=null,settingsBusy=false,settingsReady=false;
+let nativeIconSignature='';
 const appearanceMedia=window.matchMedia('(prefers-color-scheme: dark)');
 const iconPaths={
  flow:'<path d="M6 5h12v5H6zM9 15h9v5H6v-5h3zm3-5v5M9 17.5h6"/>',
@@ -13,7 +14,7 @@ function settingsPending(){return !!preferencesDraft&&JSON.stringify(preferences
 function settingsIsBusy(){return settingsBusy;}
 function effectiveTheme(p){return p.theme==='system'?(appearanceMedia.matches?'dark':'light'):p.theme;}
 function paintBrand(el,p){el.classList.toggle('custom-image',p.icon==='custom');if(p.icon==='custom'){const img=document.createElement('img');img.src=p.image;img.alt='自定义工作台图标';el.replaceChildren(img);}else el.innerHTML=iconMarkup(p.icon);}
-function applyAppearance(p){const theme=effectiveTheme(p);document.documentElement.dataset.theme=theme;document.querySelector('meta[name="color-scheme"]').content=theme;paintBrand($('.brand-mark'),p);if(nativeHost)window.chrome.webview.postMessage({type:'appearance',theme});}
+function applyAppearance(p){const theme=effectiveTheme(p);document.documentElement.dataset.theme=theme;document.querySelector('meta[name="color-scheme"]').content=theme;paintBrand($('.brand-mark'),p);if(nativeHost){window.chrome.webview.postMessage({type:'appearance',theme});const signature=JSON.stringify([p.icon,p.image]);if(signature!==nativeIconSignature){nativeIconSignature=signature;window.chrome.webview.postMessage({type:'icon-preview',icon:p.icon,image:p.image});}}}
 appearanceMedia.addEventListener('change',()=>{const p=preferencesDraft||preferences;if(p?.theme==='system')applyAppearance(p);});
 function settingsNote(text,error=false){const el=$('#settings-note');el.textContent=text;el.classList.toggle('error-text',error);el.setAttribute('role',error?'alert':'status');}
 function refreshSettings(){
