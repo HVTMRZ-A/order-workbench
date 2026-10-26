@@ -79,6 +79,11 @@ internal static class Program {
             try{var input=Dict(Json().DeserializeObject(Utf8.GetString(body)));if(route=="api/files/status"){object raw;Require(input.TryGetValue("paths",out raw)&&raw is object[]&&((object[])raw).Length<=200,"路径列表格式错误或超过 200 个");var results=new List<object>();foreach(object item in (object[])raw){Require(item is string,"路径必须是文字");results.Add(EvidenceFiles.Status((string)item));}ReplyJson(stream,200,new{files=results});}else ReplyJson(stream,200,EvidenceFiles.Action(S(input,"path"),S(input,"action")));}
             catch(Exception ex){ReplyJson(stream,400,new{error="文件操作未完成："+ex.Message});}return;
         }
+        if(method=="POST"&&route=="api/material-document"){
+            if(!headers.ContainsKey("X-Workbench-Token")||headers["X-Workbench-Token"]!=token){ReplyJson(stream,403,new{error="无效会话，请重新打开工作台"});return;}
+            try{var input=Dict(Json().DeserializeObject(Utf8.GetString(body)));ReplyJson(stream,200,MaterialDocument.Read(S(input,"content"),S(input,"filename")));}
+            catch(Exception ex){ReplyJson(stream,400,new{error="无法读取料号文档："+ex.Message});}return;
+        }
         if(method=="POST"&&route=="api/production-preview"){
             if(!headers.ContainsKey("X-Workbench-Token")||headers["X-Workbench-Token"]!=token){ReplyJson(stream,403,new{error="无效会话，请重新打开工作台"});return;}
             try {var input=Dict(Json().DeserializeObject(Utf8.GetString(body)));ReplyJson(stream,200,ProductionPreview.Read(S(input,"content"),S(input,"filename")));}
@@ -97,7 +102,7 @@ internal static class Program {
         if(method=="POST"&&route=="api/quit"&&headers.ContainsKey("X-Workbench-Token")&&headers["X-Workbench-Token"]==token){ReplyJson(stream,200,new{ok=true});ThreadPool.QueueUserWorkItem(delegate{Thread.Sleep(400);RequestShutdown();});return;}
         if(method!="GET"){Reply(stream,405,"text/plain","请求方式不支持");return;}
         string resource=route==""?"index.html":route;string mime=resource.EndsWith(".js")?"application/javascript":resource.EndsWith(".css")?"text/css":resource=="app.ico"?"image/x-icon":"text/html";
-        if(resource!="code-match.js"&&resource!="batch-codes-ui.js"&&resource!="auth-ui.js"&&resource!="audit-ui.js"&&resource!="theme.css"&&resource!="settings-ui.js"&&resource!="index.html"&&resource!="model.js"&&resource!="production.js"&&resource!="production-ui.js"&&resource!="app.js"&&resource!="evidence.js"&&resource!="evidence-ui.js"&&resource!="batch.js"&&resource!="batch-ui.js"&&resource!="save-state.js"&&resource!="style.css"&&resource!="app.ico"){Reply(stream,404,"text/plain","未找到");return;}
+        if(resource!="code-clipboard.js"&&resource!="code-match.js"&&resource!="batch-codes-ui.js"&&resource!="auth-ui.js"&&resource!="audit-ui.js"&&resource!="theme.css"&&resource!="settings-ui.js"&&resource!="index.html"&&resource!="model.js"&&resource!="production.js"&&resource!="production-ui.js"&&resource!="app.js"&&resource!="evidence.js"&&resource!="evidence-ui.js"&&resource!="batch.js"&&resource!="batch-ui.js"&&resource!="save-state.js"&&resource!="style.css"&&resource!="app.ico"){Reply(stream,404,"text/plain","未找到");return;}
         using(Stream embedded=Assembly.GetExecutingAssembly().GetManifestResourceStream(resource)){if(embedded==null){Reply(stream,404,"text/plain","资源缺失");return;}using(var ms=new MemoryStream()){embedded.CopyTo(ms);byte[] content=ms.ToArray();if(resource=="index.html"){try{var settings=SettingsStore.Read(dir);string theme=(string)settings["theme"];if(theme=="dark")content=Utf8.GetBytes(Utf8.GetString(content).Replace("<html lang=\"zh-CN\">","<html lang=\"zh-CN\" data-theme=\"dark\">").Replace("content=\"light\"","content=\"dark\""));}catch{}}ReplyBytes(stream,200,mime,content);}}
     }catch(Exception ex){try{ReplyJson(client.GetStream(),500,new{error="操作失败，数据未确认保存："+ex.Message});}catch{}}}}
     static Dictionary<string,object> Dict(object o){var d=o as Dictionary<string,object>;if(d==null)throw new InvalidDataException("数据格式错误：应为对象");return d;}

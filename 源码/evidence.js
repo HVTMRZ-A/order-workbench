@@ -25,5 +25,14 @@ function merge(order,paths,stage,note='',replaceId='',at=new Date().toISOString(
  if(records.length>200)throw Error('每个机型最多关联 200 个依据文件');if(changed)result.evidence=records;return {order:result,changed,duplicates};
 }
 function changes(before,after){const old=new Map(list(before).map(x=>[x.id,x])),next=new Map(list(after).map(x=>[x.id,x])),result=[];for(const [id,item]of next){const previous=old.get(id);if(!previous)result.push('关联依据文件 ['+STAGES[item.stage]+'] '+name(item.path)+'：'+item.path);else if(JSON.stringify(previous)!==JSON.stringify(item))result.push('更新依据文件 ['+STAGES[item.stage]+'] '+name(item.path)+'：'+(previous.path===item.path?'说明或关联步骤已更新':previous.path+' → '+item.path));}for(const [id,item]of old)if(!next.has(id))result.push('解除文件关联 ['+STAGES[item.stage]+'] '+name(item.path)+'（原文件保留）');return result;}
-const api={STAGES,normalizePath,key,name,list,errors,merge,changes};if(typeof module!=='undefined')module.exports=api;root.E=api;
+function groupSaved(orders){
+ const groups=new Map();
+ for(const order of orders)for(const item of list(order)){
+  const signature=JSON.stringify([item.stage,key(item.path)]);
+  if(!groups.has(signature))groups.set(signature,{stage:item.stage,path:item.path,links:[]});
+  groups.get(signature).links.push({orderId:order.id,model:order.model,number:order.number,recordId:item.id,note:item.note,addedAt:item.addedAt});
+ }
+ return [...groups.values()];
+}
+const api={STAGES,normalizePath,key,name,list,errors,merge,changes,groupSaved};if(typeof module!=='undefined')module.exports=api;root.E=api;
 })(typeof window!=='undefined'?window:globalThis);

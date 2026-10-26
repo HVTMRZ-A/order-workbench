@@ -1,0 +1,9 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),E=require('../源码/evidence.js');
+const o=(id,entries=[])=>({id,number:'TEST-'+id,model:'DEMO-'+id,evidence:entries});const f=(id,stage='machine',path='C:\\测试资料\\依据.pdf',note='原说明')=>({id,stage,path,note,addedAt:'2026-10-26T03:00:00Z'});
+test('旧订单无依据字段可直接显示空列表',()=>assert.deepEqual(E.groupSaved([{id:'old'}]),[]));
+test('同流程相同路径跨机型合并显示并保留各自关联',()=>{const groups=E.groupSaved([o('a',[f('f1')]),o('b',[f('f2')])]);assert.equal(groups.length,1);assert.deepEqual(groups[0].links.map(x=>x.orderId),['a','b']);assert.deepEqual(groups[0].links.map(x=>x.recordId),['f1','f2']);});
+test('路径大小写斜杠和点段差异按Windows同一路径归并',()=>{assert.equal(E.groupSaved([o('a',[f('1')]),o('b',[f('2','machine','c:/测试资料/临时/../依据.PDF')])]).length,1);});
+test('不同机型说明和关联时间分别保留，不改写旧记录',()=>{const a=o('a',[f('1')]),b=o('b',[{...f('2','machine',undefined,'另一版本'),addedAt:'2026-10-27T04:00:00Z'}]),before=JSON.stringify([a,b]),groups=E.groupSaved([a,b]);assert.deepEqual(groups[0].links.map(x=>x.note),['原说明','另一版本']);assert.deepEqual(groups[0].links.map(x=>x.addedAt),['2026-10-26T03:00:00Z','2026-10-27T04:00:00Z']);groups[0].links[0].note='仅修改显示结果';assert.equal(JSON.stringify([a,b]),before);});
+test('同名不同路径不可合并，同一路径不同流程分别显示',()=>{assert.equal(E.groupSaved([o('a',[f('1'),f('2','manual'),f('3','machine','D:\\另一目录\\依据.pdf')])]).length,3);});
+test('共享路径和特殊字符作为原文保留，不丢失说明',()=>{const path='\\\\示例服务器\\共享资料\\依据&图纸.pdf',note='<img src=x onerror=alert(1)>';const groups=E.groupSaved([o('a',[f('1','other',path,note)])]);assert.equal(groups[0].path,path);assert.equal(groups[0].links[0].note,note);});
+test('汇总只包含提供的订单，不生成文件内容或修改字段',()=>{const groups=E.groupSaved([o('a',[f('1')])]);assert.deepEqual(Object.keys(groups[0]).sort(),['links','path','stage']);assert.ok(!JSON.stringify(groups).includes('content'));});

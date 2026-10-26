@@ -3,9 +3,12 @@
 const W=typeof module!=='undefined'?require('./model.js'):root.W;
 const P=typeof module!=='undefined'?require('./production.js'):root.P;
 const E=typeof module!=='undefined'?require('./evidence.js'):root.E;
-const STATUS=['confirmed','requested','received','na'];
-const PLATE=['existing','requested','ready','na'];
+const STATUS=['pending','confirmed','requested','received','na'];
+const PLATE=['unknown','existing','requested','ready','na'];
 const copy=value=>JSON.parse(JSON.stringify(value));
+function hasNonEvidenceActions(request){return !!(request&&(request.appearance||request.machineConfirmed||request.procurementSent||request.planSent||request.plate||Object.keys(request.materials||{}).length||Object.values(request.codeEdits||{}).some(fields=>fields&&Object.keys(fields).length)));}
+function onlyEvidence(request){return !!request?.evidence?.length&&!hasNonEvidenceActions(request);}
+function previewEvidence(orders,request,at){return preview(orders,{contract:request.contract,ids:request.ids,evidence:request.evidence,note:request.note||''},at);}
 function preview(orders,request,at=new Date().toISOString()){
  const issues=[],ids=new Set(request.ids||[]),contract=request.contract;
  const scope=orders.filter(o=>P.contract(o)===contract&&!o.archived);
@@ -34,6 +37,7 @@ function preview(orders,request,at=new Date().toISOString()){
  for(const o of candidates){
   if(!ids.has(o.id))continue;
   const before=orders.find(x=>x.id===o.id),warnings=[];let machineCodeChanged=false,materialCodeChanged=false;
+  if(!onlyEvidence(request)){
   for(const[key,value]of Object.entries(codeEdits[o.id]||{})){
    if(key==='machine'){if(o.machineCode!==value.trim()){o.machineCode=value.trim();machineCodeChanged=true;}}
    else if((materials[key]??o.materials[key].status)==='na')warnings.push('本次'+W.MATERIALS.find(([k])=>k===key)[1]+'为不需要，料号保持原样');
@@ -53,6 +57,7 @@ function preview(orders,request,at=new Date().toISOString()){
   if(request.procurementSent){o.procurementSent=true;if(!o.procurementDate)o.procurementDate=W.today();}
   if(W.planStructuralIssues(o).length)o.planSent=false;
   if(request.planSent){o.planSent=true;if(!o.planDate)o.planDate=W.today();}
+  }
   const changes=[];
   if(before.appearance!==o.appearance)changes.push('机器外形：已确认');
   if(before.machineConfirmed!==o.machineConfirmed)changes.push('机器状态：已确认');
@@ -67,7 +72,7 @@ function preview(orders,request,at=new Date().toISOString()){
   const fileProblems=[];
   try{for(const item of evidence)Object.assign(o,E.merge(o,[item.path],item.stage,item.note||'','',at).order);}catch(e){fileProblems.push(e.message);}
   changes.push(...E.changes(before,o));
-  const problems=[...fileProblems,...W.validate(o)];
+  const problems=[...fileProblems,...(onlyEvidence(request)?E.errors(o.evidence):W.validate(o))];
   for(const problem of problems)issues.push(P.display(o)+' / '+o.model+'：'+problem);
   if(changes.length){o.updatedAt=at;o.history.push({at,text:'整单批量确认（'+P.alias(o)+'，本次选择 '+ids.size+' 个机型）：'+changes.join('；')+(request.note?.trim()?'；确认依据 / 备注：'+request.note.trim():'')});}
   rows.push({id:o.id,label:P.display(o),model:o.model,quantity:o.quantity,changes,warnings,problems,changed:changes.length>0});
@@ -81,5 +86,5 @@ function savedState(orders,contract,ids){
  const field=get=>{const counts={};for(const o of scope){const value=get(o);counts[value]=(counts[value]||0)+1;}const values=Object.keys(counts);return {value:values.length===1?values[0]:'keep',mixed:values.length>1,counts};};
  return {total,checks,materials:Object.fromEntries(W.MATERIALS.map(([key])=>[key,field(o=>o.materials[key].status)])),plate:field(o=>o.plate)};
 }
-const api={preview,savedState,codeImpact};if(typeof module!=='undefined')module.exports=api;root.B=api;
+const api={preview,savedState,codeImpact,hasNonEvidenceActions,onlyEvidence,previewEvidence};if(typeof module!=='undefined')module.exports=api;root.B=api;
 })(typeof window!=='undefined'?window:globalThis);
