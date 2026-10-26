@@ -11,8 +11,8 @@ using System.Threading;
 using System.Web.Script.Serialization;
 using System.Reflection;
 
-[assembly:AssemblyVersion("1.13.0.0")]
-[assembly:AssemblyFileVersion("1.13.0.0")]
+[assembly:AssemblyVersion("1.14.0.0")]
+[assembly:AssemblyFileVersion("1.14.0.0")]
 
 internal sealed class ReleaseInfo {
  public string Version,Notes,Url,DownloadUrl,Sha256; public long Size;
@@ -23,7 +23,7 @@ internal sealed class UpdatePlan {
  public List<UpdateFile> Files=new List<UpdateFile>();
 }
 internal static class UpdateCore {
- internal const string VersionText="1.13.0",Repository="HVTMRZ-A/order-workbench";
+ internal const string VersionText="1.14.0",Repository="HVTMRZ-A/order-workbench";
  internal static readonly Version CurrentVersion=new Version(VersionText);
  internal static readonly string UpdateRoot=System.IO.Path.Combine(System.IO.Path.GetTempPath(),"OrderWorkbench-Updates");
  static readonly string[] RuntimeFiles={"订单工作台.exe","订单更新助手.exe","Microsoft.Web.WebView2.Core.dll","Microsoft.Web.WebView2.WinForms.dll","runtimes/win-x64/native/WebView2Loader.dll","runtimes/win-x86/native/WebView2Loader.dll","先看这里.txt","验证说明.txt","WebView2组件许可.txt"};

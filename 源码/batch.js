@@ -35,9 +35,9 @@ function preview(orders,request,at=new Date().toISOString()){
   if(o.materials.silk.status!=='confirmed'&&o.materials.silk.status!=='na'&&['existing','requested','ready'].includes(o.plate))o.plate='unknown';
   if(request.plate){if(o.materials.silk.status==='na')warnings.push('无需丝印，网版记录保持原样');else o.plate=request.plate;}
   if(before.planSent&&(materialChanged||before.plate!==o.plate))o.planSent=false;
-  if(!W.procurementReady(o))o.procurementSent=false;
+  if(!W.procurementEligible(o))o.procurementSent=false;
   if(request.procurementSent){o.procurementSent=true;if(!o.procurementDate)o.procurementDate=W.today();}
-  if(W.planIssues(o).length)o.planSent=false;
+  if(W.planStructuralIssues(o).length)o.planSent=false;
   if(request.planSent){o.planSent=true;if(!o.planDate)o.planDate=W.today();}
   const changes=[];
   if(before.appearance!==o.appearance)changes.push('机器外形：已确认');

@@ -31,7 +31,7 @@ function refreshSettings(){
 async function openSettings(){
  if(saving||evidenceBusy||$('dialog[open]'))return;
  const button=$('#settings-open');button.disabled=true;
- try{preferences=await api('settings');settingsReady=true;preferencesDraft=JSON.parse(JSON.stringify(preferences));$('#settings-dialog').showModal();settingsNote('修改后可先预览，点击“保存设置”后保留。');refreshSettings();}
+ try{preferences=await api('settings');settingsReady=true;preferencesDraft=JSON.parse(JSON.stringify(preferences));$('#settings-dialog').showModal();settingsNote('修改后可先预览，点击“保存设置”后保留。');renderAccount();refreshSettings();}
  catch(e){toast('无法读取设置：'+errMsg(e),true);}finally{button.disabled=false;}
 }
 function cancelSettings(){if(saving||settingsBusy)return;preferencesDraft=null;$('#settings-dialog').close();if(preferences)applyAppearance(preferences);syncSaveStatus();}
