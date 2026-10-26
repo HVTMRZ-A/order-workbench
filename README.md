@@ -1,6 +1,6 @@
 # 订单工作台
 
-用于 Windows 的便携订单流程跟进工具。当前版本 **v1.12.0**。
+用于 Windows 的便携订单流程跟进工具。当前版本 **v1.13.0**。
 
 [下载最新版程序](https://github.com/HVTMRZ-A/order-workbench/releases/latest) · [详细使用说明](先看这里.txt) · [版本记录](CHANGELOG.md)
 
@@ -13,6 +13,13 @@
 旧版需要先手动安装一次 v1.10.0，保留原来的 `data`。以后点击左下角 **软件更新 → 下载并更新**，保存完成后会自动关闭、替换并重新打开。
 
 更新从此公开仓库的正式 Releases 获取，无需登录；只替换程序组件，保留订单、备份与外部文件路径。下载和校验失败时继续使用原版，安装中途失败会恢复旧文件。请保留配套的 `订单更新助手.exe`。
+
+## v1.13 改进
+
+- 左侧“设置”支持浅色、深色和跟随系统；预览、取消和保存，并在重启与升级后保留。
+- 左上角图标可选择 5 款内置样式，或导入 PNG、JPG、WebP、ICO 自定义图片。
+- 导入生产单自动识别已有机型，已导入行不可选，只补入剩余产品，已有进度保持不变。
+- 设置保存在 `data/settings.json`，上次设置保存在 `data/settings.previous.json`；复制完整数据目录可保留外观，订单 JSON 备份不包含设置。
 
 ## v1.12 改进
 
@@ -33,7 +40,7 @@
 
 ## 下载和使用
 
-1. 在 **Releases** 下载 `order-workbench-v1.12.0-portable.zip`，解压完整目录。
+1. 在 **Releases** 下载 `order-workbench-v1.13.0-portable.zip`，解压完整目录。
 2. 双击 `订单工作台.exe`。不要只拷贝一个 EXE，应保留配套组件和 `runtimes`。
 3. 先使用示例模式熟悉流程，再创建或导入正式订单。
 
@@ -77,9 +84,9 @@ powershell -ExecutionPolicy Bypass -File .\源码\编译.ps1
 安装 Node.js 后可执行无需外部库的领域规则检查：
 
 ```shell
-node --test tests/model.test.cjs
+node --test tests/*.test.cjs
 ```
 
-本次 v1.12 发行版本另完成 41 项检查，详见 [验证说明.txt](验证说明.txt)。
+本次 v1.13 发行版本完成 71 项检查，详见 [验证说明.txt](验证说明.txt)。
 
-发布新版时先编译主程序及更新助手，再运行 `python 打包发行.py 1.12.0`，将 `dist` 中完整 ZIP 上传到对应版本的 GitHub Release。后续版本需同步修改源码版本并传入新版本号；生成的 `update-manifest.json` 是自动更新必需的清单。
+发布新版时先编译主程序及更新助手，再运行 `python 打包发行.py 1.13.0`，将 `dist` 中完整 ZIP 上传到对应版本的 GitHub Release。后续版本需同步修改源码版本并传入新版本号；生成的 `update-manifest.json` 是自动更新必需的清单。

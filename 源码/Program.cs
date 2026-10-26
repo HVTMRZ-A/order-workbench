@@ -69,6 +69,11 @@ internal static class Program {
             try {var input=Dict(Json().DeserializeObject(Utf8.GetString(body)));ReplyJson(stream,200,ProductionPreview.Read(S(input,"content"),S(input,"filename")));}
             catch(Exception ex){ReplyJson(stream,400,new{error="无法读取生产单："+ex.Message});}return;
         }
+        if(route=="api/settings"&&(method=="GET"||method=="POST")){
+            if(method=="POST"&&(!headers.ContainsKey("X-Workbench-Token")||headers["X-Workbench-Token"]!=token)){ReplyJson(stream,403,new{error="无效会话，请重新打开工作台"});return;}
+            try{lock(SettingsStore.Gate){if(method=="GET")ReplyJson(stream,200,SettingsStore.Read(dir));else ReplyJson(stream,200,SettingsStore.Save(dir,Dict(Json().DeserializeObject(Utf8.GetString(body)))));}}
+            catch(SettingsConflictException ex){ReplyJson(stream,409,new{error=ex.Message});}catch(Exception ex){ReplyJson(stream,400,new{error="设置未保存："+ex.Message});}return;
+        }
         if(method=="POST"&&route=="api/data"){
             if(!headers.ContainsKey("X-Workbench-Token")||headers["X-Workbench-Token"]!=token){ReplyJson(stream,403,new{error="无效会话，请重新打开工作台"});return;}
             try{var incoming=Dict(Json().DeserializeObject(Utf8.GetString(body)));ValidateData(incoming);lock(gate){var current=ReadData();if(Convert.ToInt64(incoming["revision"])!=Convert.ToInt64(current["revision"])){ReplyJson(stream,409,new{error="另一个窗口已修改订单。当前编辑已保留，请导出草稿后重新载入。"});return;}incoming["revision"]=Convert.ToInt64(current["revision"])+1;incoming["savedAt"]=DateTime.UtcNow.ToString("o");AtomicSave(incoming);ReplyJson(stream,200,incoming);} }
@@ -77,8 +82,8 @@ internal static class Program {
         if(method=="POST"&&route=="api/quit"&&headers.ContainsKey("X-Workbench-Token")&&headers["X-Workbench-Token"]==token){ReplyJson(stream,200,new{ok=true});ThreadPool.QueueUserWorkItem(delegate{Thread.Sleep(400);RequestShutdown();});return;}
         if(method!="GET"){Reply(stream,405,"text/plain","请求方式不支持");return;}
         string resource=route==""?"index.html":route;string mime=resource.EndsWith(".js")?"application/javascript":resource.EndsWith(".css")?"text/css":resource=="app.ico"?"image/x-icon":"text/html";
-        if(resource!="index.html"&&resource!="model.js"&&resource!="production.js"&&resource!="production-ui.js"&&resource!="app.js"&&resource!="evidence.js"&&resource!="evidence-ui.js"&&resource!="batch.js"&&resource!="batch-ui.js"&&resource!="save-state.js"&&resource!="style.css"&&resource!="app.ico"){Reply(stream,404,"text/plain","未找到");return;}
-        using(Stream embedded=Assembly.GetExecutingAssembly().GetManifestResourceStream(resource)){if(embedded==null){Reply(stream,404,"text/plain","资源缺失");return;}using(var ms=new MemoryStream()){embedded.CopyTo(ms);ReplyBytes(stream,200,mime,ms.ToArray());}}
+        if(resource!="theme.css"&&resource!="settings-ui.js"&&resource!="index.html"&&resource!="model.js"&&resource!="production.js"&&resource!="production-ui.js"&&resource!="app.js"&&resource!="evidence.js"&&resource!="evidence-ui.js"&&resource!="batch.js"&&resource!="batch-ui.js"&&resource!="save-state.js"&&resource!="style.css"&&resource!="app.ico"){Reply(stream,404,"text/plain","未找到");return;}
+        using(Stream embedded=Assembly.GetExecutingAssembly().GetManifestResourceStream(resource)){if(embedded==null){Reply(stream,404,"text/plain","资源缺失");return;}using(var ms=new MemoryStream()){embedded.CopyTo(ms);byte[] content=ms.ToArray();if(resource=="index.html"){try{var settings=SettingsStore.Read(dir);string theme=(string)settings["theme"];if(theme=="dark")content=Utf8.GetBytes(Utf8.GetString(content).Replace("<html lang=\"zh-CN\">","<html lang=\"zh-CN\" data-theme=\"dark\">").Replace("content=\"light\"","content=\"dark\""));}catch{}}ReplyBytes(stream,200,mime,content);}}
     }catch(Exception ex){try{ReplyJson(client.GetStream(),500,new{error="操作失败，数据未确认保存："+ex.Message});}catch{}}}}
     static Dictionary<string,object> Dict(object o){var d=o as Dictionary<string,object>;if(d==null)throw new InvalidDataException("数据格式错误：应为对象");return d;}
     static string S(Dictionary<string,object> d,string key){object v;return d.TryGetValue(key,out v)&&v is string?(string)v:"";}
