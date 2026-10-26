@@ -16,7 +16,7 @@ async function api(route,body){await ensureAccount();let r;try{r=await fetch('ap
 async function persist(orders){if(saving)throw Error('正在保存，请稍候');if(demo){demoOrders=JSON.parse(JSON.stringify(orders));syncSaveStatus();return;}const riskAcknowledgements=await authorizeRisk(orders);saving=true;saveError=false;lastSaveProblem='';syncSaveStatus();try{const next=await api('data',{schema:1,revision:db.revision,orders,riskAcknowledgements});db=next;saveError=false;}catch(e){saveError=true;lastSaveProblem=errMsg(e);throw e;}finally{saving=false;syncSaveStatus();}}
 function newFormSnapshot(){return JSON.stringify([...new FormData($('#new-form'))]);}
 function pendingNewOrder(){return $('#new-dialog').open&&newFormSnapshot()!==newFormBaseline;}
-function pendingBatch(){if(!$('#batch-dialog')?.open)return false;const typed=!!$('#batch-evidence-path')?.value.trim();const requested=typed||batchHasActions(batchRequest())||!!$('#batch-note').value.trim();if(!requested)return false;if(typed)return true;const result=batchPreview();return !!result&&(result.changedCount>0||result.issues.length>0);}
+function pendingBatch(){if(!$('#batch-dialog')?.open)return false;const typed=!!$('#batch-evidence-path')?.value.trim();const requested=typed||batchCodesPendingText()||batchHasActions(batchRequest())||!!$('#batch-note').value.trim();if(!requested)return false;if(typed||batchCodesPendingText())return true;const result=batchPreview();return !!result&&(result.changedCount>0||result.issues.length>0);}
 function pendingEvidenceForm(){return !!$('#evidence-dialog')?.open&&evidenceFormSnapshot()!==evidenceFormBaseline;}
 function pendingProduction(){return $('#production-dialog').open;}
 function pendingNote(){return !!draft&&!!$('#history-note')?.value.trim();}
