@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
 using System.Net;
@@ -96,13 +96,13 @@ internal static class Program {
         }
         if(method=="POST"&&route=="api/data"){
             if(!headers.ContainsKey("X-Workbench-Token")||headers["X-Workbench-Token"]!=token){ReplyJson(stream,403,new{error="无效会话，请重新打开工作台"});return;}
-            try{var incoming=Dict(Json().DeserializeObject(Utf8.GetString(body)));lock(gate){var current=ReadData();if(Convert.ToInt64(incoming["revision"])!=Convert.ToInt64(current["revision"])){ReplyJson(stream,409,new{error="另一个窗口已修改订单。当前编辑已保留，请导出草稿后重新载入。"});return;}ValidateDataShape(incoming);AuditTrail.Prepare(current,incoming,account);ValidateData(incoming);incoming["revision"]=Convert.ToInt64(current["revision"])+1;incoming["savedAt"]=DateTime.UtcNow.ToString("o");AtomicSave(incoming);ReplyJson(stream,200,incoming);} }
+            try{var incoming=Dict(Json().DeserializeObject(Utf8.GetString(body)));lock(gate){var current=ReadData();if(Convert.ToInt64(incoming["revision"])!=Convert.ToInt64(current["revision"])){ReplyJson(stream,409,new{error="另一个窗口已修改订单。当前编辑已保留，请导出草稿后重新载入。"});return;}ValidateDataShape(incoming);AuditTrail.Prepare(current,incoming,account);TrackingItems.Prepare(current,incoming,account);ValidateData(incoming);incoming["revision"]=Convert.ToInt64(current["revision"])+1;incoming["savedAt"]=DateTime.UtcNow.ToString("o");AtomicSave(incoming);ReplyJson(stream,200,incoming);} }
             catch(InvalidDataException ex){ReplyJson(stream,400,new{error=ex.Message});}catch(ArgumentException){ReplyJson(stream,400,new{error="数据格式不正确"});}return;
         }
         if(method=="POST"&&route=="api/quit"&&headers.ContainsKey("X-Workbench-Token")&&headers["X-Workbench-Token"]==token){ReplyJson(stream,200,new{ok=true});ThreadPool.QueueUserWorkItem(delegate{Thread.Sleep(400);RequestShutdown();});return;}
         if(method!="GET"){Reply(stream,405,"text/plain","请求方式不支持");return;}
         string resource=route==""?"index.html":route;string mime=resource.EndsWith(".js")?"application/javascript":resource.EndsWith(".css")?"text/css":resource=="app.ico"?"image/x-icon":"text/html";
-        if(resource!="code-clipboard.js"&&resource!="code-match.js"&&resource!="batch-codes-ui.js"&&resource!="auth-ui.js"&&resource!="audit-ui.js"&&resource!="theme.css"&&resource!="settings-ui.js"&&resource!="index.html"&&resource!="model.js"&&resource!="production.js"&&resource!="production-ui.js"&&resource!="app.js"&&resource!="evidence.js"&&resource!="evidence-ui.js"&&resource!="batch.js"&&resource!="batch-ui.js"&&resource!="save-state.js"&&resource!="style.css"&&resource!="app.ico"){Reply(stream,404,"text/plain","未找到");return;}
+        if(resource!="tracking.js"&&resource!="tracking-ui.js"&&resource!="code-clipboard.js"&&resource!="code-match.js"&&resource!="batch-codes-ui.js"&&resource!="auth-ui.js"&&resource!="audit-ui.js"&&resource!="theme.css"&&resource!="settings-ui.js"&&resource!="index.html"&&resource!="model.js"&&resource!="production.js"&&resource!="production-ui.js"&&resource!="app.js"&&resource!="evidence.js"&&resource!="evidence-ui.js"&&resource!="batch.js"&&resource!="batch-ui.js"&&resource!="save-state.js"&&resource!="style.css"&&resource!="app.ico"){Reply(stream,404,"text/plain","未找到");return;}
         using(Stream embedded=Assembly.GetExecutingAssembly().GetManifestResourceStream(resource)){if(embedded==null){Reply(stream,404,"text/plain","资源缺失");return;}using(var ms=new MemoryStream()){embedded.CopyTo(ms);byte[] content=ms.ToArray();if(resource=="index.html"){try{var settings=SettingsStore.Read(dir);string theme=(string)settings["theme"];if(theme=="dark")content=Utf8.GetBytes(Utf8.GetString(content).Replace("<html lang=\"zh-CN\">","<html lang=\"zh-CN\" data-theme=\"dark\">").Replace("content=\"light\"","content=\"dark\""));}catch{}}ReplyBytes(stream,200,mime,content);}}
     }catch(Exception ex){try{ReplyJson(client.GetStream(),500,new{error="操作失败，数据未确认保存："+ex.Message});}catch{}}}}
     static Dictionary<string,object> Dict(object o){var d=o as Dictionary<string,object>;if(d==null)throw new InvalidDataException("数据格式错误：应为对象");return d;}
@@ -114,6 +114,7 @@ internal static class Program {
     static Dictionary<string,object> ReadData(){var data=Dict(Json().DeserializeObject(File.ReadAllText(file,Utf8)));ValidateData(data);return data;}
     static void ValidateDataShape(Dictionary<string,object> data){object value;if(!data.TryGetValue("orders",out value)||!(value is object[])||((object[])value).Length>10000)throw new InvalidDataException("订单列表无效");foreach(object item in (object[])value){var o=Dict(item);if(S(o,"id")==""||!o.ContainsKey("materials")||!(o["materials"] is Dictionary<string,object>))throw new InvalidDataException("订单基本结构不完整");}}
     static void ValidateData(Dictionary<string,object> data){
+        TrackingItems.Validate(data);
         Require(data.ContainsKey("schema")&&Convert.ToInt32(data["schema"])==1,"不支持此备份版本");Require(data.ContainsKey("revision")&&Convert.ToInt64(data["revision"])>=0,"缺少有效版本号");
         object val;Require(data.TryGetValue("orders",out val)&&val is object[],"缺少订单列表");object[] orders=(object[])val;Require(orders.Length<=10000,"最多支持 10000 个订单");var ids=new HashSet<string>();var numbers=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach(object obj in orders){var o=Dict(obj);string id=S(o,"id"),num=S(o,"number").Trim();Require(id.Length>0&&ids.Add(id),"订单标识缺失或重复");Require(num.Length>0&&numbers.Add(num),"订单号缺失或重复："+num);Require(S(o,"customer").Trim().Length>0&&S(o,"model").Trim().Length>0,"客户和型号不能为空");double quantity=0;Require(o.ContainsKey("quantity")&&Double.TryParse(Convert.ToString(o["quantity"]),out quantity)&&quantity>0&&quantity<=100000000&&Math.Floor(quantity)==quantity,"数量必须是有效正整数");

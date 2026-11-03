@@ -3,10 +3,13 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import hashlib, json, re, sys
 
 root=Path(__file__).resolve().parent
-version=sys.argv[1] if len(sys.argv)>1 else '1.17.0'
+version=sys.argv[1] if len(sys.argv)>1 else '1.18.0'
 assert re.fullmatch(r'\d+\.\d+\.\d+',version),'版本必须为三段数字'
 source=root/'源码'/'UpdateCore.cs'
-assert ('VersionText="'+version+'"') in source.read_text(encoding='utf-8-sig'),'源码版本与发行版本不一致'
+source_text=source.read_text(encoding='utf-8-sig')
+assert ('VersionText="'+version+'"') in source_text,'源码版本与发行版本不一致'
+for attribute in ['AssemblyVersion','AssemblyFileVersion']:
+ assert (attribute+'("'+version+'.0")') in source_text,'Windows 程序内部版本与发行版本不一致：'+attribute
 runtime=['订单工作台.exe','订单更新助手.exe','Microsoft.Web.WebView2.Core.dll','Microsoft.Web.WebView2.WinForms.dll','runtimes/win-x64/native/WebView2Loader.dll','runtimes/win-x86/native/WebView2Loader.dll','先看这里.txt','验证说明.txt','WebView2组件许可.txt']
 for name in runtime:assert (root/name).is_file(),'缺少完整组件：'+name
 files=[{'path':name,'size':(root/name).stat().st_size,'sha256':hashlib.sha256((root/name).read_bytes()).hexdigest()} for name in runtime]

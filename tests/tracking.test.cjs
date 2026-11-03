@@ -1,0 +1,6 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),T=require('../源码/tracking.js');
+const item=(id,confirmed=false)=>({id,text:'用户自填事项 '+id,contract:'26TEST1001',confirmed});
+test('自由填写事项，确认状态独立于订单字段',()=>{assert.deepEqual(T.validate([item('one')]),[item('one')]);assert.deepEqual(T.validate([{...item('one'),contract:''}]).length,1);});
+test('已确认事项仍可检索和取消确认',()=>{const rows=[item('one'),item('two',true)];assert.equal(T.filter(rows).length,2);assert.deepEqual(T.filter(rows,'confirmed').map(x=>x.id),['two']);assert.deepEqual(T.filter(rows,'pending').map(x=>x.id),['one']);assert.equal(T.filter(rows,'','26test').length,2);});
+test('合并旧备份不会清空原追踪，重复标识需明确覆盖',()=>{const original=[item('one')];assert.deepEqual(T.merge(original,[],false).items,original);assert.equal(T.merge(original,[{...item('one'),text:'修改'}],false).items[0].text,original[0].text);assert.equal(T.merge(original,[{...item('one'),text:'修改'}],true).items[0].text,'修改');assert.equal(original[0].text,'用户自填事项 one');});
+test('拒绝空白、过长文字、重复标识和无效确认状态',()=>{for(const rows of [[{...item('one'),text:'  '}],[{...item('one'),text:'字'.repeat(4001)}],[item('one'),item('one')],[{...item('one'),confirmed:'yes'}]])assert.throws(()=>T.validate(rows));});

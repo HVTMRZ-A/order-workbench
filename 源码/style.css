@@ -25,3 +25,13 @@
 .sidebar{overflow-y:auto}
 
 .update-auto-status{font-size:10px;color:var(--fg-8a9993,#8a9993);line-height:1.65;margin:-4px 0 10px;overflow-wrap:anywhere}.software-update.update-available{font-weight:650;background:var(--bg-e8f5e9,#e8f5e9);color:var(--fg-236b45,#236b45);border-radius:5px;padding:5px 7px}.software-update.update-available::before{content:"● ";font-size:9px}
+
+/* 持续追踪沿用当前主题，不参与订单流程状态。 */
+.tracking-panel[hidden]{display:none}.tracking-panel .panel-heading h2 span{font-size:12px;font-weight:400;color:var(--muted);margin-left:12px}
+.tracking-item{display:flex;gap:22px;align-items:center;padding:23px 28px;border-top:1px solid var(--line);background:var(--bg-white,#fff)}
+.tracking-check{display:flex;align-items:flex-start;gap:16px;flex:1;min-width:0;cursor:pointer}.tracking-check input{width:20px;height:20px;margin:2px 0 0;flex-shrink:0;accent-color:var(--teal)}
+.tracking-content{min-width:0}.tracking-content b{display:block;font-size:14px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere;font-weight:550}.tracking-content small{display:block;color:var(--muted);font-size:11px;margin-top:8px}.tracking-content small span{color:var(--teal)}
+.tracking-item.confirmed .tracking-content b{color:var(--muted)}.tracking-item-actions{display:flex;align-items:center;gap:18px;flex-shrink:0}.tracking-item-actions .text-btn{color:var(--muted);font-size:11px;margin:0}
+.tracking-field{display:flex;flex-direction:column;gap:9px;margin:20px 0;color:var(--muted);font-size:12px}.tracking-field textarea{resize:vertical;min-height:130px;line-height:1.8}.tracking-field em{font-style:normal;color:var(--teal)}
+#tracking-dialog{width:min(650px,94vw)}.orders-panel[hidden],.heading-import[hidden]{display:none}
+@media(max-width:800px){.tracking-item{padding:20px 16px;gap:10px}.tracking-item-actions{flex-direction:column;gap:10px}.tracking-panel .panel-heading{align-items:flex-start}.tracking-panel .panel-heading h2 span{display:block;margin:6px 0}.tracking-panel .toolbar{flex-wrap:wrap}}
