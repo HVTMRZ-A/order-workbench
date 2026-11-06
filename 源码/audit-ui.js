@@ -1,6 +1,6 @@
 ﻿'use strict';
 let auditPromptResolve=null,auditPromptRequests=[],auditDialogOrder='';
-const riskStageNames={machine:'机器状态确认',purchase:'采购交接',silk:'丝印要求确认',nameplate:'铭牌要求确认',manual:'说明书要求确认',carton:'纸箱要求确认',plan:'计划交接'};
+const riskStageNames={machine:'机器状态确认',purchase:'采购交接',silk:'丝印要求确认',nameplate:'铭牌要求确认',manual:'说明书要求确认',carton:'纸箱图案 / 版面确认',plan:'计划交接'};
 const riskCodeNames={machine:'机器料号',silk:'丝印料号',nameplate:'铭牌料号',manual:'说明书料号',carton:'纸箱料号'};
 function riskRequests(orders){const before=new Map(activeOrders().map(o=>[o.id,o]));return orders.flatMap(o=>W.riskRequests(before.get(o.id),o).map(r=>({...r,orderId:o.id,number:P.display(o),model:o.model})));}
 async function authorizeRisk(orders){
@@ -12,6 +12,8 @@ async function authorizeRisk(orders){
 function closeRisk(accepted){const pending=auditPromptResolve;if(!pending)return;auditPromptResolve=null;$('#risk-dialog').close();const requests=auditPromptRequests.map(({orderId,stage,missing})=>({orderId,stage,missing,accepted:true,accountId:accountSession.id}));auditPromptRequests=[];if(accepted)pending.resolve(requests);else pending.reject(Error('已取消缺料号风险确认，当前编辑保留，尚未保存。'));syncSaveStatus();}
 $('#risk-ack').onchange=()=>$('#risk-confirm').disabled=!$('#risk-ack').checked;$('#risk-form').onsubmit=e=>{e.preventDefault();if($('#risk-ack').checked)closeRisk(true);};$('#risk-cancel').onclick=()=>closeRisk(false);$('#risk-dialog').addEventListener('cancel',e=>{e.preventDefault();closeRisk(false);});
 function auditValue(value,key){
+ if(key==='cartonType')return W.CARTON_TYPES[value]||(value===null?'未记录':'待业务确认');
+ if(key==='cartonSizeConfirmed')return value===true?'已核对':value===false?'待核对':'未记录';
  if(value===null||value===undefined||value==='')return '未填写';if(typeof value==='boolean')return value?'已确认 / 已完成':'待办理';if(key==='priority')return value==='urgent'?'加急':'普通';if(key==='plate')return W.PLATE[value]||value;if(key.endsWith('.status'))return W.STATUS[value]||value;if(key==='machineSource'||key.endsWith('.source'))return value==='new'?'新建料号':'已有料号';if(typeof value==='object'){if(value.path)return (value.stage?E.STAGES[value.stage]+' · ':'')+value.path+(value.note?' · '+value.note:'');return JSON.stringify(value);}return String(value);
 }
 function accountLabel(entry){return entry.username?(entry.name||entry.username)+'（'+entry.username+'）':'旧版记录 · 未记录账户';}

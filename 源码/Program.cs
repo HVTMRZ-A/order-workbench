@@ -96,7 +96,7 @@ internal static class Program {
         }
         if(method=="POST"&&route=="api/data"){
             if(!headers.ContainsKey("X-Workbench-Token")||headers["X-Workbench-Token"]!=token){ReplyJson(stream,403,new{error="无效会话，请重新打开工作台"});return;}
-            try{var incoming=Dict(Json().DeserializeObject(Utf8.GetString(body)));lock(gate){var current=ReadData();if(Convert.ToInt64(incoming["revision"])!=Convert.ToInt64(current["revision"])){ReplyJson(stream,409,new{error="另一个窗口已修改订单。当前编辑已保留，请导出草稿后重新载入。"});return;}ValidateDataShape(incoming);AuditTrail.Prepare(current,incoming,account);TrackingItems.Prepare(current,incoming,account);ValidateData(incoming);incoming["revision"]=Convert.ToInt64(current["revision"])+1;incoming["savedAt"]=DateTime.UtcNow.ToString("o");AtomicSave(incoming);ReplyJson(stream,200,incoming);} }
+            try{var incoming=Dict(Json().DeserializeObject(Utf8.GetString(body)));lock(gate){var current=ReadData();if(Convert.ToInt64(incoming["revision"])!=Convert.ToInt64(current["revision"])){ReplyJson(stream,409,new{error="另一个窗口已修改订单。当前编辑已保留，请导出草稿后重新载入。"});return;}ValidateDataShape(incoming);ValidateCartonHandoffs(current,incoming);AuditTrail.Prepare(current,incoming,account);TrackingItems.Prepare(current,incoming,account);ValidateData(incoming);incoming["revision"]=Convert.ToInt64(current["revision"])+1;incoming["savedAt"]=DateTime.UtcNow.ToString("o");AtomicSave(incoming);ReplyJson(stream,200,incoming);} }
             catch(InvalidDataException ex){ReplyJson(stream,400,new{error=ex.Message});}catch(ArgumentException){ReplyJson(stream,400,new{error="数据格式不正确"});}return;
         }
         if(method=="POST"&&route=="api/quit"&&headers.ContainsKey("X-Workbench-Token")&&headers["X-Workbench-Token"]==token){ReplyJson(stream,200,new{ok=true});ThreadPool.QueueUserWorkItem(delegate{Thread.Sleep(400);RequestShutdown();});return;}
@@ -113,6 +113,32 @@ internal static class Program {
     static string[] materials={"silk","nameplate","manual","carton"};
     static Dictionary<string,object> ReadData(){var data=Dict(Json().DeserializeObject(File.ReadAllText(file,Utf8)));ValidateData(data);return data;}
     static void ValidateDataShape(Dictionary<string,object> data){object value;if(!data.TryGetValue("orders",out value)||!(value is object[])||((object[])value).Length>10000)throw new InvalidDataException("订单列表无效");foreach(object item in (object[])value){var o=Dict(item);if(S(o,"id")==""||!o.ContainsKey("materials")||!(o["materials"] is Dictionary<string,object>))throw new InvalidDataException("订单基本结构不完整");}}
+    // Old completed handoffs can retain unrecorded checkpoints. New handoffs must confirm both.
+    static void ValidateCartonHandoffs(Dictionary<string,object> current,Dictionary<string,object> incoming){
+        bool backupImport=B(incoming,"backupImport");
+        incoming.Remove("backupImport");
+        var previous=new Dictionary<string,Dictionary<string,object>>();
+        foreach(object item in (object[])current["orders"]){
+            var order=Dict(item);
+            previous.Add(S(order,"id"),order);
+        }
+        foreach(object item in (object[])incoming["orders"]){
+            var order=Dict(item);
+            if(!B(order,"planSent"))continue;
+            var materials=Dict(order["materials"]);
+            object carton;
+            if(materials.TryGetValue("carton",out carton)&&S(Dict(carton),"status")=="na")continue;
+            Dictionary<string,object> before;
+            previous.TryGetValue(S(order,"id"),out before);
+            foreach(string key in new[]{"cartonType","cartonSizeConfirmed"}){
+                if(order.ContainsKey(key))continue;
+                bool previousHandoff=before!=null&&B(before,"planSent")&&!before.ContainsKey(key)
+                    &&S(Dict(Dict(before["materials"])["carton"]),"status")!="na";
+                Require(previousHandoff||(backupImport&&before==null),
+                    key=="cartonType"?"交计划前请先与业务确认纸箱箱型":"交计划前请先核对纸箱尺寸");
+            }
+        }
+    }
     static void ValidateData(Dictionary<string,object> data){
         TrackingItems.Validate(data);
         Require(data.ContainsKey("schema")&&Convert.ToInt32(data["schema"])==1,"不支持此备份版本");Require(data.ContainsKey("revision")&&Convert.ToInt64(data["revision"])>=0,"缺少有效版本号");
@@ -121,6 +147,15 @@ internal static class Program {
             Require(In(S(o,"priority"),"normal","urgent"),"无效优先级");string due=S(o,"due");DateTime dueDate;Require(due==""||DateTime.TryParseExact(due,"yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture,System.Globalization.DateTimeStyles.None,out dueDate),"日期格式无效");
             Require(!B(o,"machineConfirmed")||B(o,"appearance"),"确认机器前需完成外形确认");Require(!B(o,"procurementSent")||(B(o,"appearance")&&B(o,"machineConfirmed")&&(S(o,"machineCode").Trim().Length>0||AuditTrail.Accepted(o,"purchase"))),"采购交接缺少机器确认或机器料号");
             Require(o.ContainsKey("materials"),"缺少包材信息");var mats=Dict(o["materials"]);bool all=true;foreach(string key in materials){Require(mats.ContainsKey(key),"缺少包材项目："+key);var m=Dict(mats[key]);string status=S(m,"status");Require(In(status,"pending","requested","received","confirmed","na"),"无效包材状态");Require(In(S(m,"source"),"existing","new"),"无效料号来源");if(status!="na"&&(status!="confirmed"||(S(m,"code").Trim().Length==0&&!AuditTrail.Accepted(o,"plan"))))all=false;}
+            bool cartonRequired=S(Dict(mats["carton"]),"status")!="na";
+            if(o.ContainsKey("cartonType")){
+                Require(o["cartonType"] is string&&In(S(o,"cartonType"),"","kraft","color"),"纸箱箱型无效");
+                Require(!cartonRequired||!B(o,"planSent")||S(o,"cartonType")!="","交计划前请先与业务确认纸箱箱型");
+            }
+            if(o.ContainsKey("cartonSizeConfirmed")){
+                Require(o["cartonSizeConfirmed"] is bool,"纸箱尺寸确认状态无效");
+                Require(!cartonRequired||!B(o,"planSent")||B(o,"cartonSizeConfirmed"),"交计划前请先核对纸箱尺寸");
+            }
             string plate=S(o,"plate");Require(In(plate,"unknown","existing","requested","ready","na"),"无效网版状态");string silk=S(Dict(mats["silk"]),"status");Require(silk=="na"||!In(plate,"existing","requested","ready")||silk=="confirmed","确认丝印要求后再提交或确认网版");bool ready=silk=="na"||In(plate,"existing","ready","na");Require(!B(o,"planSent")||(B(o,"procurementSent")&&all&&ready),"计划交接前须完成所有要求确认、料号与网版检查");
             Require(In(S(o,"machineSource"),"existing","new"),"无效机器料号来源");foreach(var kv in o)if(kv.Value is string)Require(((string)kv.Value).Length<=20000,"文本超长");
             foreach(string key in new[]{"number","customer","model","sales","due","priority","notes","machineReference","machineSource","machineCode","procurementDate","procurementNote","plate","plateNote","planDate","planNote","createdAt","updatedAt"})Require(o.ContainsKey(key)&&o[key] is string,"订单缺少文本字段："+key);

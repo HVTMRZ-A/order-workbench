@@ -3,7 +3,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import hashlib, json, re, sys
 
 root=Path(__file__).resolve().parent
-version=sys.argv[1] if len(sys.argv)>1 else '1.18.0'
+version=sys.argv[1] if len(sys.argv)>1 else '1.19.0'
 assert re.fullmatch(r'\d+\.\d+\.\d+',version),'版本必须为三段数字'
 source=root/'源码'/'UpdateCore.cs'
 source_text=source.read_text(encoding='utf-8-sig')
