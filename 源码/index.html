@@ -7,6 +7,7 @@
  <div class="nav-label">订单管理</div>
  <nav aria-label="主导航">
  <button data-view="overview" class="nav-item active"><span class="nav-icon">◈</span>工作概览</button>
+ <button data-view="priority" class="nav-item"><span class="nav-icon">⚑</span>优先待办<span id="nav-priority" class="nav-count">0</span></button>
  <button data-view="all" class="nav-item"><span class="nav-icon">▤</span>全部订单<span id="nav-all" class="nav-count">0</span></button>
  <button data-view="waiting" class="nav-item"><span class="nav-icon">◷</span>等待协作<span id="nav-waiting" class="nav-count">0</span></button>
  <button data-view="due" class="nav-item"><span class="nav-icon">⚑</span>临近 / 已过期<span id="nav-due" class="nav-count">0</span></button>
@@ -19,7 +20,7 @@
  <button id="guide-open" class="nav-item"><span class="nav-icon">?</span>流程说明</button>
  <button id="settings-open" class="nav-item"><span class="nav-icon">⚙</span>设置</button>
  <button id="project-open" class="nav-item" title="https://github.com/HVTMRZ-A/order-workbench" aria-label="打开 GitHub 项目地址"><span class="nav-icon">↗</span>项目地址</button>
- <div class="sidebar-bottom"><div class="save-led"><span class="live-dot"></span><span id="save-status">正在连接本地数据…</span></div><div id="last-saved" class="last-saved">最近保存：正在读取…</div><div id="save-hint" class="save-hint"></div><button id="save-now" class="save-now" disabled>保存当前更改</button><div class="version">v1.19.0 · 数据保存在这台电脑</div><button class="text-btn software-update" id="software-update">软件更新 ↻</button><div id="update-auto-status" class="update-auto-status" role="status" aria-live="polite">启动后自动检查更新</div><button class="text-btn" id="quit">退出程序 ↗</button></div>
+ <div class="sidebar-bottom"><div class="save-led"><span class="live-dot"></span><span id="save-status">正在连接本地数据…</span></div><div id="last-saved" class="last-saved">最近保存：正在读取…</div><div id="save-hint" class="save-hint"></div><button id="save-now" class="save-now" disabled>保存当前更改</button><div class="version">v1.20.0 · 数据保存在这台电脑</div><button class="text-btn software-update" id="software-update">软件更新 ↻</button><div id="update-auto-status" class="update-auto-status" role="status" aria-live="polite">启动后自动检查更新</div><button class="text-btn" id="quit">退出程序 ↗</button></div>
 </aside>
 <main>
  <header class="topbar"><div class="breadcrumb">我的工作空间 <span>/</span> <b id="breadcrumb">工作概览</b></div><div class="topbar-right"><span id="date-label"></span><button id="account-current" class="account-current" title="当前登录账户">登录账户</button></div></header>
@@ -32,6 +33,10 @@
  <div class="toolbar"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="搜索简称、合同号、客户、型号、料号" aria-label="搜索订单"></label><select id="stage-filter" aria-label="筛选阶段"><option value="">全部阶段</option><option value="machine">机器确认</option><option value="purchase">料号 / 采购</option><option value="material">丝印 / 包材</option><option value="plan">料号 / 计划</option><option value="done">已完成</option></select><select id="sort" aria-label="排序"><option value="due">交期优先</option><option value="updated">最近更新</option><option value="created">最近新建</option></select><button id="csv-export" class="secondary small">导出清单 ↗</button></div>
  <div id="order-list"></div>
  <div class="panel-foot"><span>● 已完成　<span class="amber-text">● 等待 / 进行中</span>　<span class="muted">○ 待办理</span></span><span>点击订单行展开产品，再点击产品查看确认事项 →</span></div>
+ </section>
+ <section id="priority-panel" class="orders-panel priority-panel" hidden>
+  <div class="panel-heading"><div><h2>优先待办 <span id="priority-count"></span></h2><p>整单加入满 48 小时，机器料号仍未补齐。每个订单列一行。</p></div></div>
+  <div id="priority-list"></div>
  </section>
  <section id="tracking-panel" class="orders-panel tracking-panel" hidden>
   <div class="panel-heading"><div><h2>持续追踪 <span id="tracking-summary"></span></h2><p>事项内容由你填写，勾选即可确认，已确认的事项也可继续查阅。</p></div><button class="primary" data-tracking-new>＋ 新增事项</button></div>
@@ -65,5 +70,5 @@
 <dialog id="audit-dialog" aria-labelledby="audit-title"><div class="dialog-heading"><div><div class="eyebrow">按订单集中查询 · 最近操作在上</div><h2 id="audit-title">修改记录</h2></div><button type="button" class="icon-btn" data-close="audit-dialog" aria-label="关闭修改记录">×</button></div><p id="audit-summary" class="dialog-intro"></p><div id="audit-list"></div><div id="audit-legacy"></div></dialog>
 <div id="toast" class="toast" role="status" hidden></div>
 <input id="import-file" type="file" accept="application/json,.json" hidden>
-<dialog id="production-dialog"><div id="production-content"></div></dialog><input id="production-file" type="file" accept=".xlsx" hidden><script src="evidence.js"></script><script src="model.js"></script><script src="production.js"></script><script src="code-clipboard.js"></script><script src="code-match.js"></script><script src="batch.js"></script><script src="save-state.js"></script><script src="auth-ui.js"></script><script src="tracking.js"></script><script src="app.js"></script><script src="audit-ui.js"></script><script src="tracking-ui.js"></script><script src="settings-ui.js"></script><script src="production-ui.js"></script><script src="batch-codes-ui.js"></script><script src="batch-ui.js"></script><script src="evidence-ui.js"></script>
+<dialog id="production-dialog"><div id="production-content"></div></dialog><input id="production-file" type="file" accept=".xlsx" hidden><script src="evidence.js"></script><script src="model.js"></script><script src="production.js"></script><script src="code-clipboard.js"></script><script src="code-match.js"></script><script src="batch.js"></script><script src="save-state.js"></script><script src="auth-ui.js"></script><script src="tracking.js"></script><script src="priority.js"></script><script src="app.js"></script><script src="audit-ui.js"></script><script src="tracking-ui.js"></script><script src="priority-ui.js"></script><script src="settings-ui.js"></script><script src="production-ui.js"></script><script src="batch-codes-ui.js"></script><script src="batch-ui.js"></script><script src="evidence-ui.js"></script>
 </body></html>
