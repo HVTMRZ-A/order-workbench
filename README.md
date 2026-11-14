@@ -1,8 +1,8 @@
 # 订单工作台
 
-用于 Windows 的便携订单流程跟进工具。当前版本 **v1.20.0**。
+用于 Windows 的便携订单流程跟进工具。当前版本 **v1.21.0**。
 
-[下载最新版程序](https://github.com/HVTMRZ-A/order-workbench/releases/latest) · [详细使用说明](先看这里.txt) · [版本记录](CHANGELOG.md)
+[Cloudflare 下载](https://order-workbench-updates.nuoyanzhang99.workers.dev/) · [GitHub 下载](https://github.com/HVTMRZ-A/order-workbench/releases/latest) · [详细使用说明](先看这里.txt) · [版本记录](CHANGELOG.md)
 
 ## 自动检测与软件内更新
 
@@ -12,7 +12,27 @@
 
 旧版需要先手动安装一次 v1.10.0，保留原来的 `data`。以后点击左下角 **软件更新 → 下载并更新**，保存完成后会自动关闭、替换并重新打开。
 
-更新从此公开仓库的正式 Releases 获取，无需登录；只替换程序组件，保留订单、备份与外部文件路径。下载和校验失败时继续使用原版，安装中途失败会恢复旧文件。请保留配套的 `订单更新助手.exe`。
+v1.21 起更新优先从 Cloudflare 获取，GitHub 正式 Releases 作为备用，无需登录；只替换程序组件，保留订单、备份与外部文件路径。下载和校验失败时继续使用原版，安装中途失败会恢复旧文件。请保留配套的 `订单更新助手.exe`。
+
+## v1.21 改进
+
+新增 Cloudflare 免费更新下载源，同时保留 GitHub 备用；现有用户无需手动分发程序。
+
+### 如何升级
+
+- 原版本用户：打开软件左下角“软件更新”，通过原 GitHub 更新通道升级一次到 v1.21。之后自动优先使用 Cloudflare，遇到网络故障自动尝试 GitHub 备用源。
+- GitHub 暂时无法下载时：[Cloudflare 新下载地址](https://order-workbench-updates.nuoyanzhang99.workers.dev/) 提供同一个完整程序包。
+- [Cloudflare 版本清单](https://order-workbench-updates.nuoyanzhang99.workers.dev/latest.json) 供软件自动检查版本使用。
+- 更新保留原 `data` 文件夹内的订单、账户、设置、依据路径和修改记录。手动覆盖时先保存并退出原程序，保留原 `data` 文件夹。
+
+### 本版改进
+
+- 更新下载遇到连接故障、超时、临时服务器错误或截断时自动重试，最多 15 次，等待间隔逐步增加到最长两分钟；可以随时取消，失败后支持手动重新下载。
+- 全部订单汇总行增加“归档整单”，一次归档该合同全部机型；“归档订单”支持整单恢复，详情页入口也统一为整单操作。
+- 持续追踪增加单项归档和“归档全部已确认”；默认隐藏归档事项，支持筛选、查阅、恢复及按账户记录操作。
+- 归档不会删除原流程、料号、依据和历史；持续追踪与订单归档相互独立。
+
+验证：108 项业务规则、19 项下载与双源切换测试通过；已验证整单和追踪归档、重启、备份恢复、实际 Cloudflare 下载及原升级助手的数据保留。国内速度因网络而异，保留双源和重试。
 
 ## v1.20 改进
 
@@ -143,6 +163,6 @@ powershell -ExecutionPolicy Bypass -File .\源码\编译.ps1
 node --test tests/*.test.cjs
 ```
 
-本次 v1.20 发行前通过 104 项自动化规则测试及隔离数据的界面、保存重启与备份恢复检查，详见 [验证说明.txt](验证说明.txt)。
+本次 v1.21 发行前通过 108 项业务规则及 19 项下载与双源切换测试及隔离数据的界面、保存重启与备份恢复检查，详见 [验证说明.txt](验证说明.txt)。
 
 发布新版时先编译主程序及更新助手，再运行 `python 打包发行.py 1.20.0`，将 `dist` 中完整 ZIP 上传到对应版本的 GitHub Release。后续版本需同步修改源码版本并传入新版本号；生成的 `update-manifest.json` 是自动更新必需的清单。

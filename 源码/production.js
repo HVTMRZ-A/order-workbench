@@ -6,6 +6,12 @@ function contract(o){return o.contractNumber||o.number;}
 function alias(o){return o.alias||shortName(contract(o));}
 function display(o){return alias(o)+(o.sourceSerial?' · '+o.sourceSerial:'');}
 function groups(orders){const map=new Map();for(const o of orders){const key=contract(o);if(!map.has(key))map.set(key,[]);map.get(key).push(o);}return [...map.values()];}
+function archiveGroup(orders,id,archived,at=new Date().toISOString()){
+ const anchor=orders.find(o=>o.id===id);if(!anchor)throw Error('订单不存在，请刷新后重试');if(typeof archived!=='boolean')throw Error('归档状态无效');
+ const key=contract(anchor),group=orders.filter(o=>contract(o)===key);let changedCount=0;
+ const result=orders.map(o=>{if(contract(o)!==key||o.archived===archived)return o;changedCount++;return {...o,archived,updatedAt:at,history:[...o.history,{at,text:(archived?'整单归档：':'整单恢复：')+key+'，共 '+group.length+' 个机型。'}]};});
+ return {orders:result,changedCount,total:group.length,contract:key};
+}
 function summary(orders){
  const total=orders.length,done=orders.filter(W.complete).length,finished=total>0&&done===total;
  const conditions=orders.flatMap(W.checks),passed=conditions.filter(Boolean).length;
@@ -43,5 +49,5 @@ function importState(preview,sheet,edited,existing){
  const count=rows.filter(r=>r.duplicate).length;return {rows,existingCount:same.length,duplicateCount:count,remainingCount:rows.length-count,alias:same[0]?alias(same[0]):''};
 }
 function errors(orders,existing){const messages=[];if(!orders.length)messages.push('请至少选择一行需要导入的产品');const seen=new Set();for(const o of orders){messages.push(...W.validate(o).map(e=>o.number+'：'+e));if(!o.contractNumber.trim())messages.push('请填写完整合同编号');if(seen.has(importText(o.number)))messages.push('导入明细订单号重复');seen.add(importText(o.number));if(existing.some(x=>importText(x.number)===importText(o.number)))messages.push('已存在相同订单号：'+o.number+'，本次不会覆盖原流程。');}return messages;}
-const api={importState,importText,shortName,contract,alias,display,groups,summary,normalize,toOrders,errors};if(typeof module!=='undefined')module.exports=api;root.P=api;
+const api={archiveGroup,importState,importText,shortName,contract,alias,display,groups,summary,normalize,toOrders,errors};if(typeof module!=='undefined')module.exports=api;root.P=api;
 })(typeof window!=='undefined'?window:globalThis);

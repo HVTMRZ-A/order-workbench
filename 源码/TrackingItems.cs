@@ -14,7 +14,7 @@ internal static class TrackingItems {
     internal static void Validate(Dictionary<string,object> data){
         if(data.ContainsKey("tracking")){
             Check(data["tracking"] is object[],"持续追踪列表格式错误");var items=(object[])data["tracking"];Check(items.Length<=5000,"持续追踪最多支持 5000 项");var ids=new HashSet<string>();
-            foreach(object raw in items){var item=D(raw);Check(S(item,"id").Length>0&&S(item,"id").Length<=100&&ids.Add(S(item,"id")),"持续追踪标识缺失或重复");Check(V(item,"text") is string&&S(item,"text").Trim().Length>0&&S(item,"text").Length<=4000,"请填写持续追踪事项，最多 4000 字");Check(V(item,"contract") is string&&S(item,"contract").Length<=200,"持续追踪关联订单格式错误");Check(V(item,"confirmed") is bool,"持续追踪确认状态格式错误");}
+            foreach(object raw in items){var item=D(raw);Check(S(item,"id").Length>0&&S(item,"id").Length<=100&&ids.Add(S(item,"id")),"持续追踪标识缺失或重复");Check(V(item,"text") is string&&S(item,"text").Trim().Length>0&&S(item,"text").Length<=4000,"请填写持续追踪事项，最多 4000 字");Check(V(item,"contract") is string&&S(item,"contract").Length<=200,"持续追踪关联订单格式错误");Check(V(item,"confirmed") is bool,"持续追踪确认状态格式错误");Check(!item.ContainsKey("archived")||V(item,"archived") is bool,"持续追踪归档状态格式错误");Check(!Object.Equals(V(item,"archived"),true)||Object.Equals(V(item,"confirmed"),true),"请先确认事项，再归档");}
         }
         if(data.ContainsKey("trackingAudit"))Check(data["trackingAudit"] is object[],"持续追踪记录格式错误");
     }
@@ -31,9 +31,10 @@ internal static class TrackingItems {
         Validate(incoming);string at=DateTime.UtcNow.ToString("o");var previous=A(current,"tracking").Select(D).ToDictionary(x=>S(x,"id"));var audit=new List<object>(A(current,"trackingAudit"));var result=new List<object>();var seen=new HashSet<string>();
         foreach(object raw in (object[])incoming["tracking"]){
             var item=D(raw);string id=S(item,"id"),text=S(item,"text").Trim(),contract=S(item,"contract").Trim();bool confirmed=(bool)item["confirmed"];seen.Add(id);Dictionary<string,object> before;if(!previous.TryGetValue(id,out before))before=new Dictionary<string,object>();
-            var next=new Dictionary<string,object>{{"id",id},{"text",text},{"contract",contract},{"confirmed",confirmed},{"createdAt",before.Count>0?S(before,"createdAt"):at},{"updatedAt",at},{"confirmedAt",confirmed?(V(before,"confirmed") is bool&&(bool)before["confirmed"]?S(before,"confirmedAt"):at):""}};
-            var changes=new List<object>();foreach(string key in new[]{"text","contract","confirmed"}){object old=V(before,key),value=next[key];if(!Object.Equals(old,value))changes.Add(Change(key,key=="text"?"追踪事项":key=="contract"?"关联订单":"事项确认",old,value));}
-            if(changes.Count==0)result.Add(before);else{result.Add(next);audit.Add(Event(user,at,before.Count==0?"tracking-create":"tracking-edit",before,next,changes.ToArray()));}
+            bool archived=Object.Equals(V(item,"archived"),true),wasArchived=Object.Equals(V(before,"archived"),true);
+            var next=new Dictionary<string,object>{{"id",id},{"text",text},{"contract",contract},{"confirmed",confirmed},{"archived",archived},{"archivedAt",archived?(wasArchived?S(before,"archivedAt"):at):""},{"createdAt",before.Count>0?S(before,"createdAt"):at},{"updatedAt",at},{"confirmedAt",confirmed?(V(before,"confirmed") is bool&&(bool)before["confirmed"]?S(before,"confirmedAt"):at):""}};
+            var changes=new List<object>();foreach(string key in new[]{"text","contract","confirmed","archived"}){object old=key=="archived"?(object)wasArchived:V(before,key),value=next[key];if(!Object.Equals(old,value))changes.Add(Change(key,key=="text"?"追踪事项":key=="contract"?"关联订单":key=="confirmed"?"事项确认":"事项归档",old,value));}
+            if(changes.Count==0)result.Add(before);else{result.Add(next);audit.Add(Event(user,at,before.Count==0?"tracking-create":archived!=wasArchived?(archived?"tracking-archive":"tracking-restore"):"tracking-edit",before,next,changes.ToArray()));}
         }
         foreach(var pair in previous)if(!seen.Contains(pair.Key))audit.Add(Event(user,at,"tracking-delete",pair.Value,new Dictionary<string,object>(),new object[]{Change("text","删除追踪事项",S(pair.Value,"text"),null)}));
         object imported;if(incoming.TryGetValue("trackingImportedAudit",out imported)){

@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>订单工作台</title><link rel="icon" href="app.ico"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="theme.css"></head>
 <body>
 <aside class="sidebar">
@@ -20,7 +20,7 @@
  <button id="guide-open" class="nav-item"><span class="nav-icon">?</span>流程说明</button>
  <button id="settings-open" class="nav-item"><span class="nav-icon">⚙</span>设置</button>
  <button id="project-open" class="nav-item" title="https://github.com/HVTMRZ-A/order-workbench" aria-label="打开 GitHub 项目地址"><span class="nav-icon">↗</span>项目地址</button>
- <div class="sidebar-bottom"><div class="save-led"><span class="live-dot"></span><span id="save-status">正在连接本地数据…</span></div><div id="last-saved" class="last-saved">最近保存：正在读取…</div><div id="save-hint" class="save-hint"></div><button id="save-now" class="save-now" disabled>保存当前更改</button><div class="version">v1.20.0 · 数据保存在这台电脑</div><button class="text-btn software-update" id="software-update">软件更新 ↻</button><div id="update-auto-status" class="update-auto-status" role="status" aria-live="polite">启动后自动检查更新</div><button class="text-btn" id="quit">退出程序 ↗</button></div>
+ <div class="sidebar-bottom"><div class="save-led"><span class="live-dot"></span><span id="save-status">正在连接本地数据…</span></div><div id="last-saved" class="last-saved">最近保存：正在读取…</div><div id="save-hint" class="save-hint"></div><button id="save-now" class="save-now" disabled>保存当前更改</button><div class="version">v1.21.0 · 数据保存在这台电脑</div><button class="text-btn software-update" id="software-update">软件更新 ↻</button><div id="update-auto-status" class="update-auto-status" role="status" aria-live="polite">启动后自动检查更新</div><button class="text-btn" id="quit">退出程序 ↗</button></div>
 </aside>
 <main>
  <header class="topbar"><div class="breadcrumb">我的工作空间 <span>/</span> <b id="breadcrumb">工作概览</b></div><div class="topbar-right"><span id="date-label"></span><button id="account-current" class="account-current" title="当前登录账户">登录账户</button></div></header>
@@ -39,8 +39,8 @@
   <div id="priority-list"></div>
  </section>
  <section id="tracking-panel" class="orders-panel tracking-panel" hidden>
-  <div class="panel-heading"><div><h2>持续追踪 <span id="tracking-summary"></span></h2><p>事项内容由你填写，勾选即可确认，已确认的事项也可继续查阅。</p></div><button class="primary" data-tracking-new>＋ 新增事项</button></div>
-  <div class="toolbar"><label class="search"><span>⌕</span><input id="tracking-search" type="search" placeholder="搜索事项或订单号" aria-label="搜索追踪事项"></label><select id="tracking-filter" aria-label="筛选追踪状态"><option value="">全部事项</option><option value="pending">待确认</option><option value="confirmed">已确认</option></select><button id="tracking-history" class="secondary small">修改记录</button></div>
+  <div class="panel-heading"><div><h2>持续追踪 <span id="tracking-summary"></span></h2><p>事项内容由你填写，勾选确认后可归档；已归档事项可查阅或恢复。</p></div><button class="primary" data-tracking-new>＋ 新增事项</button></div>
+  <div class="toolbar"><label class="search"><span>⌕</span><input id="tracking-search" type="search" placeholder="搜索事项或订单号" aria-label="搜索追踪事项"></label><select id="tracking-filter" aria-label="筛选追踪状态"><option value="">未归档事项</option><option value="pending">待确认</option><option value="confirmed">已确认</option><option value="archived">已归档</option><option value="all">全部（含归档）</option></select><button id="tracking-archive-confirmed" class="secondary small">归档全部已确认</button><button id="tracking-history" class="secondary small">修改记录</button></div>
   <div id="tracking-list"></div><div class="panel-foot"><span>勾选或取消确认后立即保存</span><span>订单完成、归档后仍可继续追踪</span></div>
  </section>
  <footer class="page-foot"><span>有条理地推进每一次交付。</span><span>本地离线使用 · 无需登录</span></footer>

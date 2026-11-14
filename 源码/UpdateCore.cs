@@ -11,11 +11,11 @@ using System.Threading;
 using System.Web.Script.Serialization;
 using System.Reflection;
 
-[assembly:AssemblyVersion("1.20.0.0")]
-[assembly:AssemblyFileVersion("1.20.0.0")]
+[assembly:AssemblyVersion("1.21.0.0")]
+[assembly:AssemblyFileVersion("1.21.0.0")]
 
 internal sealed class ReleaseInfo {
- public string Version,Notes,Url,DownloadUrl,Sha256; public long Size;
+ public string Version,Notes,Url,DownloadUrl,FallbackUrl,Sha256; public long Size;
 }
 internal sealed class UpdateFile { public string Path,Sha256; public long Size; }
 internal sealed class UpdatePlan {
@@ -23,7 +23,9 @@ internal sealed class UpdatePlan {
  public List<UpdateFile> Files=new List<UpdateFile>();
 }
 internal static class UpdateCore {
- internal const string VersionText="1.20.0",Repository="HVTMRZ-A/order-workbench";
+ internal const string VersionText="1.21.0",Repository="HVTMRZ-A/order-workbench";
+ internal const string UpdateHost="order-workbench-updates.nuoyanzhang99.workers.dev";
+ internal const string HostedRoot="https://"+UpdateHost+"/";
  internal static readonly Version CurrentVersion=new Version(VersionText);
  internal static readonly string UpdateRoot=System.IO.Path.Combine(System.IO.Path.GetTempPath(),"OrderWorkbench-Updates");
  static readonly string[] RuntimeFiles={"订单工作台.exe","订单更新助手.exe","Microsoft.Web.WebView2.Core.dll","Microsoft.Web.WebView2.WinForms.dll","runtimes/win-x64/native/WebView2Loader.dll","runtimes/win-x86/native/WebView2Loader.dll","先看这里.txt","验证说明.txt","WebView2组件许可.txt"};
@@ -43,26 +45,162 @@ internal static class UpdateCore {
   if(ParseVersion(v)<=CurrentVersion)return new ReleaseInfo{Version=v,Notes=S(d,"body"),Url=S(d,"html_url")};
   Require(asset!=null&&S(asset,"state")=="uploaded","新版本程序包尚未上传完成");string digest=S(asset,"digest");Require(Regex.IsMatch(digest,@"^sha256:[0-9a-fA-F]{64}$"),"更新包缺少 SHA256 校验，已停止更新");
   string url=prefix+"download/"+tag+"/"+name;Require(S(asset,"browser_download_url")==url,"更新包下载地址无效");long size=Convert.ToInt64(asset["size"]);Require(size>0&&size<=64*1024*1024,"更新包大小无效或超过 64 MB");
-  return new ReleaseInfo{Version=v,Notes=S(d,"body"),Url=S(d,"html_url"),DownloadUrl=url,Sha256=digest.Substring(7).ToLowerInvariant(),Size=size};
+  return new ReleaseInfo{Version=v,Notes=S(d,"body"),Url=S(d,"html_url"),DownloadUrl=url,FallbackUrl=HostedRoot+"packages/"+name,Sha256=digest.Substring(7).ToLowerInvariant(),Size=size};
  }
- internal static ReleaseInfo Check(){return ParseRelease(ReadText("https://api.github.com/repos/"+Repository+"/releases/latest"));}
- static HttpWebResponse Response(string address,bool json){
+ internal static ReleaseInfo ParseHostedRelease(string text){
+  var d=Dict(Json().DeserializeObject(text));Require(d.ContainsKey("schema")&&Convert.ToInt32(d["schema"])==1&&S(d,"repository")==Repository,"更新来源不匹配");
+  string v=ParseVersion(S(d,"version")).ToString(),name="order-workbench-v"+v+"-portable.zip",file="packages/"+name;
+  string releaseUrl="https://github.com/"+Repository+"/releases/tag/v"+v;
+  Require(S(d,"file")==file&&S(d,"releaseUrl")==releaseUrl,"更新包下载地址无效");
+  string sha=S(d,"sha256");Require(Regex.IsMatch(sha,@"^[0-9a-fA-F]{64}$"),"更新包缺少 SHA256 校验，已停止更新");
+  Require(d.ContainsKey("size"),"更新包大小缺失");long size=Convert.ToInt64(d["size"]);Require(size>0&&size<=64*1024*1024,"更新包大小无效或超过 64 MB");
+  return new ReleaseInfo{Version=v,Notes=S(d,"notes"),Url=releaseUrl,DownloadUrl=HostedRoot+file,FallbackUrl="https://github.com/"+Repository+"/releases/download/v"+v+"/"+name,Sha256=sha.ToLowerInvariant(),Size=size};
+ }
+ internal static ReleaseInfo Check(){return Check(ReadText);}
+ internal static ReleaseInfo Check(Func<string,string> readText){
+  try{return ParseHostedRelease(readText(HostedRoot+"latest.json"));}
+  catch(Exception){return ParseRelease(readText("https://api.github.com/repos/"+Repository+"/releases/latest"));}
+ }
+ internal static void TrustedAddress(Uri uri,bool json){
+  Require(uri.Scheme=="https"&&uri.IsDefaultPort&&String.IsNullOrEmpty(uri.UserInfo),"只允许从可信更新源的 HTTPS 地址获取更新");
+  bool trusted=uri.Host==UpdateHost||(json?uri.Host=="api.github.com":uri.Host=="github.com"||uri.Host=="release-assets.githubusercontent.com"||uri.Host=="objects.githubusercontent.com"||uri.Host=="github-releases.githubusercontent.com");
+  Require(trusted,"更新下载被重定向到不支持的地址");
+ }
+ static HttpWebResponse Response(string address,bool json,CancellationToken cancel=default(CancellationToken)){
   Uri uri=new Uri(address);for(int redirects=0;redirects<6;redirects++){
-   Require(uri.Scheme=="https"&&uri.IsDefaultPort&&String.IsNullOrEmpty(uri.UserInfo),"只允许从 GitHub 的 HTTPS 地址获取更新");
-   bool trusted=json?uri.Host=="api.github.com":uri.Host=="github.com"||uri.Host=="release-assets.githubusercontent.com"||uri.Host=="objects.githubusercontent.com"||uri.Host=="github-releases.githubusercontent.com";
-   Require(trusted,"更新下载被重定向到不支持的地址");ServicePointManager.SecurityProtocol|=SecurityProtocolType.Tls12;
-   var req=(HttpWebRequest)WebRequest.Create(uri);req.Method="GET";req.UserAgent="OrderWorkbench/"+VersionText;req.Accept=json?"application/vnd.github+json":"application/octet-stream";req.Timeout=20000;req.ReadWriteTimeout=20000;req.AllowAutoRedirect=false;
-   var response=(HttpWebResponse)req.GetResponse();int status=(int)response.StatusCode;
-   if(status>=300&&status<400){string location=response.Headers["Location"];response.Dispose();Require(!String.IsNullOrEmpty(location),"下载跳转地址缺失");uri=new Uri(uri,location);continue;}Require(status==200,"GitHub 未返回更新文件");return response;
+   cancel.ThrowIfCancellationRequested();
+   TrustedAddress(uri,json);ServicePointManager.SecurityProtocol|=SecurityProtocolType.Tls12;
+   var req=(HttpWebRequest)WebRequest.Create(uri);req.Method="GET";req.UserAgent="OrderWorkbench/"+VersionText;req.Accept=json?"application/json":"application/octet-stream";req.Timeout=20000;req.ReadWriteTimeout=20000;req.AllowAutoRedirect=false;
+   var response=OpenResponse(req,cancel);int status=(int)response.StatusCode;
+   if(status>=300&&status<400){string location=response.Headers["Location"];response.Dispose();Require(!String.IsNullOrEmpty(location),"下载跳转地址缺失");uri=new Uri(uri,location);continue;}Require(status==200,"更新源未返回完整文件");return response;
   }throw new InvalidDataException("更新下载跳转次数过多");
  }
  static string ReadText(string url){using(var response=Response(url,true))using(var s=response.GetResponseStream())using(var ms=new MemoryStream()){var buffer=new byte[8192];int n;while((n=s.Read(buffer,0,buffer.Length))>0){Require(ms.Length+n<=2*1024*1024,"更新资料过大");ms.Write(buffer,0,n);}return Encoding.UTF8.GetString(ms.ToArray());}}
- internal static string Friendly(Exception ex){var web=ex as WebException;if(web!=null){var response=web.Response as HttpWebResponse;if(response!=null&&(int)response.StatusCode==404)return "暂未找到公开的正式更新，请稍后重试。";if(response!=null&&((int)response.StatusCode==403||(int)response.StatusCode==429))return "GitHub 暂时限制了检查次数，请稍后再试。";return "无法连接 GitHub，请检查网络后重试。当前程序与订单数据保持不变。";}return ex.Message;}
- internal static string Prepare(ReleaseInfo release,string target,string data,IProgress<int> progress,CancellationToken cancel){
-  Require(ParseVersion(release.Version)>CurrentVersion,"无须安装相同或更早的版本");Directory.CreateDirectory(UpdateRoot);string stage=System.IO.Path.Combine(UpdateRoot,Guid.NewGuid().ToString("N"));Directory.CreateDirectory(stage);string zip=System.IO.Path.Combine(stage,"update.zip");
-  using(var response=Response(release.DownloadUrl,false))using(var input=response.GetResponseStream())using(var output=new FileStream(zip,FileMode.CreateNew,FileAccess.Write,FileShare.None)){
-   byte[] buffer=new byte[65536];long length=0;int n;while((n=input.Read(buffer,0,buffer.Length))>0){cancel.ThrowIfCancellationRequested();length+=n;Require(length<=release.Size&&length<=64*1024*1024,"下载文件大小与发布信息不符");output.Write(buffer,0,n);if(progress!=null)progress.Report((int)(length*100/release.Size));}Require(length==release.Size,"更新下载不完整，请重试");output.Flush(true);
-  }cancel.ThrowIfCancellationRequested();return StagePackage(zip,release.Sha256,release.Version,target,data,stage);
+ internal static string Friendly(Exception ex){var web=ex as WebException;if(web!=null){var response=web.Response as HttpWebResponse;if(response!=null&&(int)response.StatusCode==404)return "暂未找到公开的正式更新，请稍后重试。";if(response!=null&&((int)response.StatusCode==403||(int)response.StatusCode==429))return "更新源暂时限制了访问，请稍后再试。";return "无法连接更新源，请检查网络后重试。当前程序与订单数据保持不变。";}return ex.Message;}
+ static HttpWebResponse OpenResponse(HttpWebRequest request,CancellationToken cancel){
+  using(cancel.Register(request.Abort)){
+   try{return (HttpWebResponse)request.GetResponse();}
+   catch(WebException){cancel.ThrowIfCancellationRequested();throw;}
+  }
+ }
+
+ static bool RetryDownload(Exception error){
+  if(error is DownloadIncompleteException)return true;
+  var web=error as WebException;
+  if(web==null)return false;
+  var response=web.Response as HttpWebResponse;
+  if(response!=null){
+   int code=(int)response.StatusCode;
+   return code==408||code==429||code==500||code==502||code==503||code==504;
+  }
+  switch(web.Status){
+   case WebExceptionStatus.Timeout:
+   case WebExceptionStatus.ConnectFailure:
+   case WebExceptionStatus.ConnectionClosed:
+   case WebExceptionStatus.NameResolutionFailure:
+   case WebExceptionStatus.ProxyNameResolutionFailure:
+   case WebExceptionStatus.ReceiveFailure:
+   case WebExceptionStatus.SendFailure:
+   case WebExceptionStatus.KeepAliveFailure:
+    return true;
+   default:return false;
+  }
+ }
+
+ sealed class DownloadIncompleteException:IOException{
+  internal DownloadIncompleteException():base("更新下载不完整"){}
+ }
+
+ static void DownloadAttempt(ReleaseInfo release,string zip,IProgress<int> progress,
+     CancellationToken cancel,Func<HttpWebResponse> openResponse){
+  using(var response=openResponse())
+  using(cancel.Register(response.Close))
+  using(var input=response.GetResponseStream())
+  using(var output=new FileStream(zip,FileMode.Create,FileAccess.Write,FileShare.None)){
+   byte[] buffer=new byte[65536];
+   long length=0;
+   while(true){
+    cancel.ThrowIfCancellationRequested();
+    int count;
+    try{count=input.Read(buffer,0,buffer.Length);}
+    catch(IOException error){
+     cancel.ThrowIfCancellationRequested();
+     throw new WebException("下载连接中断",error,WebExceptionStatus.ReceiveFailure,null);
+    }
+    if(count==0)break;
+    length+=count;
+    Require(length<=release.Size&&length<=64*1024*1024,"下载文件大小与发布信息不符");
+    output.Write(buffer,0,count);
+    if(progress!=null)progress.Report((int)(length*100/release.Size));
+   }
+   cancel.ThrowIfCancellationRequested();
+   if(length!=release.Size)throw new DownloadIncompleteException();
+   output.Flush(true);
+  }
+ }
+
+ internal static int[] DownloadRetryDelays(){
+  return new[]{5000,10000,20000,30000,45000,60000,90000,
+      120000,120000,120000,120000,120000,120000,120000,120000};
+ }
+
+ internal static void DownloadPackage(ReleaseInfo release,string zip,IProgress<int> progress,
+     CancellationToken cancel,IProgress<string> status,Func<HttpWebResponse> openResponse,
+     int[] retryDelays=null){
+  int[] delays=retryDelays??DownloadRetryDelays();
+  for(int attempt=0;;attempt++){
+   cancel.ThrowIfCancellationRequested();
+   if(progress!=null)progress.Report(0);
+   if(status!=null)status.Report(attempt==0?"正在下载 v"+release.Version+"…":
+       "正在自动重试 "+attempt+"/"+delays.Length+"，重新下载 v"+release.Version+"…");
+   try{
+    DownloadAttempt(release,zip,progress,cancel,openResponse);
+    cancel.ThrowIfCancellationRequested();
+    Require(Hash(zip)==release.Sha256,"更新包校验失败，请重新下载");
+    return;
+   }catch(Exception error){
+    if(File.Exists(zip))File.Delete(zip);
+    var web=error as WebException;
+    bool retry=RetryDownload(error);
+    if(web!=null&&web.Response!=null)web.Response.Close();
+    cancel.ThrowIfCancellationRequested();
+    if(!retry)throw;
+    if(attempt>=delays.Length)throw new IOException(
+        "下载失败，已自动重试 "+delays.Length+" 次。"+Friendly(error)+" 可点击“重新下载”再试。",error);
+    if(status!=null)status.Report("下载中断，"+(delays[attempt]/1000)+
+        " 秒后自动重试（"+(attempt+1)+"/"+delays.Length+"）");
+    if(cancel.WaitHandle.WaitOne(delays[attempt]))cancel.ThrowIfCancellationRequested();
+   }
+  }
+ }
+
+ internal static void DownloadFromSources(ReleaseInfo release,string zip,IProgress<int> progress,
+     CancellationToken cancel,IProgress<string> status,Func<string,HttpWebResponse> openResponse,
+     int[] retryDelays=null){
+  var sources=new List<string>{release.DownloadUrl};if(!String.IsNullOrEmpty(release.FallbackUrl)&&release.FallbackUrl!=release.DownloadUrl)sources.Add(release.FallbackUrl);
+  int next=0;
+  DownloadPackage(release,zip,progress,cancel,status,()=>{
+   WebException retryable=null;
+   for(int i=0;i<sources.Count;i++){
+    string address=sources[next++%sources.Count];cancel.ThrowIfCancellationRequested();
+    try{return openResponse(address);}
+    catch(WebException error){cancel.ThrowIfCancellationRequested();if(RetryDownload(error))retryable=error;if(error.Response!=null)error.Response.Close();if(i==sources.Count-1)throw retryable??error;}
+   }
+   throw new IOException("没有可用的更新下载地址");
+  },retryDelays);
+ }
+
+ internal static string Prepare(ReleaseInfo release,string target,string data,IProgress<int> progress,
+     CancellationToken cancel,IProgress<string> status=null){
+  Require(ParseVersion(release.Version)>CurrentVersion,"无须安装相同或更早的版本");
+  Directory.CreateDirectory(UpdateRoot);
+  string stage=System.IO.Path.Combine(UpdateRoot,Guid.NewGuid().ToString("N"));
+  Directory.CreateDirectory(stage);
+  string zip=System.IO.Path.Combine(stage,"update.zip");
+  DownloadFromSources(release,zip,progress,cancel,status,address=>Response(address,false,cancel));
+  cancel.ThrowIfCancellationRequested();
+  if(status!=null)status.Report("下载完成，正在校验程序包…");
+  return StagePackage(zip,release.Sha256,release.Version,target,data,stage);
  }
  internal static string SafeRelative(string path){Require(!String.IsNullOrWhiteSpace(path)&&path.Length<240&&!path.Contains("\\")&&!path.Contains(":")&&!path.StartsWith("/"),"更新包路径无效");foreach(string part in path.Split('/'))Require(part!=""&&part!="."&&part!=".."&&!part.EndsWith(".")&&!part.EndsWith(" "),"更新包包含不安全路径");return path;}
  internal static string Inside(string root,string path){string full=System.IO.Path.GetFullPath(System.IO.Path.Combine(root,SafeRelative(path).Replace('/',System.IO.Path.DirectorySeparatorChar)));Require(full.StartsWith(System.IO.Path.GetFullPath(root).TrimEnd('\\')+"\\",StringComparison.OrdinalIgnoreCase),"更新路径超出目标目录");return full;}
